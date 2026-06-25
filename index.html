@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>✨ ミニMBTI診断 | 懇親会で話すきっかけに</title>
+<meta name="description" content="12の質問に答えるとあなたのタイプがわかる、懇親会向けミニMBTI診断。">
+<style>
+  :root{
+    --blue:#5b8def;
+    --pink:#ff5e7e;
+    --purple:#9b6dff;
+    --ink:#2b2356;
+    --sub:#5b5478;
+    --card-bg:rgba(255,255,255,0.68);
+    --card-border:rgba(255,255,255,0.75);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    color:var(--ink);
+    -webkit-text-size-adjust:100%;
+    -webkit-tap-highlight-color:transparent;
+    overflow-x:hidden;
+  }
+  .bg{
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    background:#f4f3fb;
+    overflow:hidden;
+  }
+  .bg::before,.bg::after{
+    content:"";
+    position:absolute;
+    width:130vmax;
+    height:130vmax;
+    top:50%;
+    left:50%;
+    background:conic-gradient(from 0deg,
+      #5b8def, #9b6dff, #ff5e7e, #ffb86b, #5b8def);
+    opacity:0.35;
+    filter:blur(60px);
+    animation:spin 26s linear infinite;
+    transform-origin:center;
+  }
+  .bg::after{
+    animation-duration:34s;
+    animation-direction:reverse;
+    opacity:0.25;
+  }
+  @keyframes spin{
+    from{transform:translate(-50%,-50%) rotate(0deg);}
+    to{transform:translate(-50%,-50%) rotate(360deg);}
+  }
+  .wrap{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    padding:24px 18px 48px;
+    display:flex;
+    flex-direction:column;
+  }
+  .screen{display:none;flex:1;flex-direction:column;animation:fadeIn .35s ease;}
+  .screen.active{display:flex;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  h1.title{
+    text-align:center;
+    font-size:30px;
+    line-height:1.35;
+    margin:6px 0 10px;
+    background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    font-weight:800;
+  }
+  .lead{
+    text-align:center;
+    color:var(--sub);
+    font-size:15px;
+    line-height:1.7;
+    margin:0 0 28px;
+  }
+  .card{
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:28px;
+    box-shadow:0 20px 60px rgba(91,77,255,0.15);
+    -webkit-backdrop-filter:blur(18px);
+    backdrop-filter:blur(18px);
+    padding:26px 22px;
+  }
+  .start-card{margin-top:auto;margin-bottom:auto;text-align:center;}
+  .start-emoji{font-size:54px;margin-bottom:6px;}
+  .meta-row{
+    display:flex;
+    justify-content:center;
+    gap:18px;
+    margin:18px 0 22px;
+    font-size:13px;
+    color:var(--sub);
+  }
+  .meta-row span{display:flex;align-items:center;gap:5px;}
+
+  .btn{
+    display:block;
+    width:100%;
+    border:none;
+    border-radius:18px;
+    padding:16px 18px;
+    font-size:17px;
+    font-weight:700;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+  .btn-primary{
+    color:#fff;
+    background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));
+    box-shadow:0 10px 26px rgba(155,109,255,0.35);
+    transition:transform .12s ease;
+  }
+  .btn-primary:active{transform:scale(.97);}
+
+  .disclaimer{
+    text-align:center;
+    font-size:12px;
+    color:var(--sub);
+    opacity:.8;
+    margin-top:18px;
+    line-height:1.6;
+  }
+
+  /* quiz */
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:22px;}
+  .progress-track{
+    flex:1;
+    height:8px;
+    border-radius:999px;
+    background:rgba(91,77,255,0.12);
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    border-radius:999px;
+    background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));
+    transition:width .35s ease;
+    width:0%;
+  }
+  .progress-label{font-size:13px;color:var(--sub);font-weight:700;white-space:nowrap;}
+
+  .q-scene{
+    display:inline-block;
+    font-size:12px;
+    font-weight:700;
+    color:var(--purple);
+    background:rgba(155,109,255,0.12);
+    border-radius:999px;
+    padding:4px 12px;
+    margin-bottom:14px;
+  }
+  .q-text{
+    font-size:21px;
+    line-height:1.55;
+    font-weight:800;
+    margin:0 0 22px;
+    color:var(--ink);
+  }
+  .choices{display:flex;flex-direction:column;gap:12px;}
+  .choice-btn{
+    text-align:left;
+    background:#fff;
+    border:2px solid rgba(91,77,255,0.15);
+    border-radius:18px;
+    padding:16px 18px;
+    font-size:16px;
+    line-height:1.5;
+    font-weight:600;
+    color:var(--ink);
+    cursor:pointer;
+    transition:transform .12s ease, border-color .12s ease, background .12s ease;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+  .choice-btn:active{
+    transform:scale(.97);
+    border-color:var(--purple);
+    background:linear-gradient(90deg,rgba(91,77,255,0.08),rgba(255,94,126,0.08));
+  }
+  .choice-letter{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:24px;height:24px;
+    border-radius:50%;
+    background:linear-gradient(135deg,var(--blue),var(--pink));
+    color:#fff;
+    font-size:12px;
+    font-weight:800;
+    margin-right:10px;
+    flex-shrink:0;
+  }
+  .back-link{
+    margin:18px auto 0;
+    background:none;
+    border:none;
+    color:var(--sub);
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    padding:10px;
+  }
+  .back-link:disabled{opacity:0;pointer-events:none;}
+
+  /* result */
+  .result-card{text-align:center;}
+  .result-label{font-size:13px;color:var(--sub);font-weight:700;margin:0 0 4px;}
+  .result-code{
+    font-size:48px;
+    font-weight:900;
+    letter-spacing:.04em;
+    margin:0 0 6px;
+    background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .result-nickname{font-size:19px;font-weight:800;margin:0 0 6px;color:var(--ink);}
+  .result-catch{font-size:14px;color:var(--sub);margin:0 0 22px;}
+  .result-section{
+    text-align:left;
+    border-top:1px solid rgba(91,77,255,0.12);
+    padding-top:16px;
+    margin-top:16px;
+  }
+  .result-section h3{
+    font-size:14px;
+    margin:0 0 8px;
+    color:var(--purple);
+    font-weight:800;
+  }
+  .result-section p, .result-section li{
+    font-size:15px;
+    line-height:1.7;
+    color:var(--ink);
+    margin:0;
+  }
+  .result-section ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;}
+  .result-hint{
+    background:linear-gradient(135deg,rgba(91,77,255,0.08),rgba(255,94,126,0.08));
+    border-radius:16px;
+    border-top:none;
+    padding:16px;
+    margin-top:18px;
+  }
+  .result-actions{margin-top:22px;display:flex;flex-direction:column;gap:10px;}
+  .share-note{text-align:center;font-size:12px;color:var(--sub);margin:14px 0 0;}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="wrap">
+
+  <!-- START -->
+  <section class="screen active" id="screen-start">
+    <div class="card start-card">
+      <div class="start-emoji">🦄✨</div>
+      <h1 class="title">あなたは何タイプ？</h1>
+      <p class="lead">12個の質問に答えるだけで、あなたの「会話タイプ」がわかります。<br>診断結果を見せ合って、話のきっかけにしてみてください。</p>
+      <div class="meta-row">
+        <span>⏱ 所要時間 約1分</span>
+        <span>❓ 全12問</span>
+      </div>
+      <button class="btn btn-primary" id="startBtn">診断スタート</button>
+      <p class="disclaimer">※ 本診断は懇親会用のエンタメコンテンツです。厳密な心理学的検査ではありません。</p>
+    </div>
+  </section>
+
+  <!-- QUIZ -->
+  <section class="screen" id="screen-quiz">
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel">1 / 12</div>
+    </div>
+    <div class="card">
+      <span class="q-scene" id="qScene">日常</span>
+      <h2 class="q-text" id="qText"></h2>
+      <div class="choices">
+        <button class="choice-btn" id="choiceA"></button>
+        <button class="choice-btn" id="choiceB"></button>
+      </div>
+    </div>
+    <button class="back-link" id="backBtn">← ひとつ戻る</button>
+  </section>
+
+  <!-- RESULT -->
+  <section class="screen" id="screen-result">
+    <div class="card result-card">
+      <p class="result-label">あなたのタイプは</p>
+      <h1 class="result-code" id="resultCode">ENFP</h1>
+      <p class="result-nickname" id="resultNickname"></p>
+      <p class="result-catch" id="resultCatch"></p>
+
+      <div class="result-section">
+        <h3>🔍 特徴</h3>
+        <p id="resultDesc"></p>
+      </div>
+      <div class="result-section">
+        <h3>💪 強み</h3>
+        <ul id="resultStrengths"></ul>
+      </div>
+      <div class="result-section">
+        <h3>😂 あるある</h3>
+        <ul id="resultAruaru"></ul>
+      </div>
+      <div class="result-section result-hint">
+        <h3>💬 話しかけるなら</h3>
+        <p id="resultHint"></p>
+      </div>
+    </div>
+    <div class="result-actions">
+      <button class="btn btn-primary" id="restartBtn">もう一回診断する</button>
+    </div>
+    <p class="share-note">📸 結果カードをスクショして見せ合ってみよう！</p>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var QUESTIONS = [
+    { axis:"EI", scene:"日常", text:"休日、何をしてると一番回復する？",
+      a:{ text:"友達や知り合いと会って話す", pole:"E" },
+      b:{ text:"一人の時間でゆっくり過ごす", pole:"I" } },
+    { axis:"SN", scene:"日常", text:"知らない街に旅行するとき、ワクワクするのは？",
+      a:{ text:"グルメや観光名所など、その土地の「リアル」を体験すること", pole:"S" },
+      b:{ text:"その土地の歴史や雰囲気から物語を想像すること", pole:"N" } },
+    { axis:"TF", scene:"仕事", text:"仕事で意見が分かれたとき、大事にするのは？",
+      a:{ text:"どちらが論理的に正しいか", pole:"T" },
+      b:{ text:"チームの空気やみんなの気持ち", pole:"F" } },
+    { axis:"JP", scene:"日常", text:"旅行や遊びの計画、しっくりくるのは？",
+      a:{ text:"事前にスケジュールをきっちり決めておく", pole:"J" },
+      b:{ text:"大枠だけ決めて、当日の気分で動く", pole:"P" } },
+    { axis:"EI", scene:"仕事", text:"懇親会やランチタイム、気づいたら自分はどっち？",
+      a:{ text:"知らない人にも声をかけて輪を広げてる", pole:"E" },
+      b:{ text:"気の合うメンバーと深く話し込んでる", pole:"I" } },
+    { axis:"SN", scene:"仕事", text:"新しい仕事を任されたとき、まず欲しいのは？",
+      a:{ text:"具体的な手順や過去の実例", pole:"S" },
+      b:{ text:"全体のビジョンやゴールイメージ", pole:"N" } },
+    { axis:"TF", scene:"日常", text:"友達の相談に乗るとき、つい言ってしまうのは？",
+      a:{ text:"「それってこうしたら解決するよ」という解決策", pole:"T" },
+      b:{ text:"「それは辛かったね」という共感の言葉", pole:"F" } },
+    { axis:"JP", scene:"仕事", text:"タスクの進め方、自分に近いのは？",
+      a:{ text:"締切より早めに終わらせて安心したい", pole:"J" },
+      b:{ text:"締切前の追い込みで一気に仕上げる", pole:"P" } },
+    { axis:"EI", scene:"仕事", text:"会議やブレストで、自分のスタイルは？",
+      a:{ text:"思いついたことをまず口に出して考える", pole:"E" },
+      b:{ text:"頭の中で考えを整理してから発言する", pole:"I" } },
+    { axis:"SN", scene:"日常", text:"友達からの相談、得意なのは？",
+      a:{ text:"今、目の前で起きている事実を整理すること", pole:"S" },
+      b:{ text:"背景にある可能性やパターンを読み解くこと", pole:"N" } },
+    { axis:"TF", scene:"仕事", text:"フィードバックをするとき、自分のスタイルは？",
+      a:{ text:"改善点をはっきり伝える", pole:"T" },
+      b:{ text:"相手の気持ちを考えて言葉を選ぶ", pole:"F" } },
+    { axis:"JP", scene:"日常", text:"予定が急に変わったとき、自分はどっちのタイプ？",
+      a:{ text:"少し戸惑いつつも、計画を立て直したくなる", pole:"J" },
+      b:{ text:"むしろ「どうなるか」とワクワクする", pole:"P" } }
+  ];
+
+  var TYPES = {
+    INTJ:{ nickname:"策士の建築家", catch:"静かに戦略を描き、淡々と実行する",
+      desc:"一人で黙々と考える時間が好きで、長期的な計画やゴールを描くのが得意。会話でも筋の通ったロジックを大事にします。",
+      strengths:["戦略的な思考力","ブレない独立心","芯の強さ"],
+      aruaru:["気づいたら頭の中で人生計画を立てている","「とりあえず」が苦手で先にゴールを決めたくなる"],
+      talkHint:"「最近ハマってること」をロジック立てて聞いてみると、意外と熱く語ってくれるかも。" },
+    INTP:{ nickname:"探究者の発明家", catch:"「なぜ？」を突き詰める知的好奇心の人",
+      desc:"仕組みや理屈を理解するのが好きで、誰も気づかない視点から物事を分析します。雑学や新しい知識に目を輝かせるタイプ。",
+      strengths:["鋭い分析力","独創的な発想","柔軟な思考"],
+      aruaru:["質問されると「それ、定義から話すと…」と語り出す","興味のあることだと止まらない"],
+      talkHint:"「ちょっと変わった質問していい？」から始めると、食いつきがいいかも。" },
+    ENTJ:{ nickname:"指揮官の戦略家", catch:"仲間を巻き込み、前に進める人",
+      desc:"目標達成のためにチームを動かすのが得意。決断力があり、議論をリードする場面で頼りになる存在です。",
+      strengths:["リーダーシップ","決断力","実行力"],
+      aruaru:["いつのまにか飲み会の仕切り役になっている","目標が決まると一気にスイッチが入る"],
+      talkHint:"「今度こんなことやりたいんだけど」と相談すると、的確なアドバイスがもらえるかも。" },
+    ENTP:{ nickname:"討論者の発見者", catch:"議論と新しいアイデアを楽しむ人",
+      desc:"新しい可能性やアイデアを思いつくのが得意で、議論をゲームのように楽しみます。会話の引き出しが多く飽きさせません。",
+      strengths:["豊かな発想力","とっさの機転","社交的なエネルギー"],
+      aruaru:["「逆にこう考えたら？」が口癖","一つの話題からどんどん話が広がっていく"],
+      talkHint:"ちょっと挑戦的な「もしも〜だったら？」の質問をすると盛り上がるかも。" },
+    INFJ:{ nickname:"提唱者のカウンセラー", catch:"静かに人の気持ちを読み取る人",
+      desc:"物事の裏にある意味や人の感情に敏感で、深い話や価値観の話を好みます。少人数でじっくり話す方が本領発揮。",
+      strengths:["鋭い洞察力","深い共感力","ブレない理想"],
+      aruaru:["初対面でもなぜか深い相談をされがち","一人反省会をよくしている"],
+      talkHint:"雑談よりも「最近考えてること」を聞くと、心の距離が縮まるかも。" },
+    INFP:{ nickname:"仲介者の夢想家", catch:"自分の価値観に静かに正直な人",
+      desc:"自分なりの理想や美意識を大切にし、物語や創作、人の気持ちに敏感。穏やかながら内側に強い信念を持っています。",
+      strengths:["豊かな想像力","誠実さ","共感力"],
+      aruaru:["好きなものの話になると急に語彙が増える","一人の時間でエネルギーを充電している"],
+      talkHint:"「最近好きなもの」を聞くと、その人の世界観に触れられるかも。" },
+    ENFJ:{ nickname:"主人公気質のまとめ役", catch:"みんなを元気にするムードメーカー",
+      desc:"周りの気持ちに気づいて自然とフォローに回ります。人を励まし、場の雰囲気を温かくするのが得意。",
+      strengths:["共感力","巻き込み力","きめ細かな気配り"],
+      aruaru:["飲み会で気づくとみんなのグラスが空いてないか見ている","人の相談に全力で乗ってしまう"],
+      talkHint:"最近の調子を聞くと、自然と会話が広がっていくタイプ。" },
+    ENFP:{ nickname:"広報担当の太陽", catch:"好奇心とテンションで場を盛り上げる人",
+      desc:"新しい人や物事にワクワクするのが好きで、その場のエネルギーをぐっと引き上げる存在。会話のテンポが軽快です。",
+      strengths:["発想力","社交性","ポジティブさ"],
+      aruaru:["初対面でもすぐ仲良くなる","やりたいことが多すぎて手帳がカオス"],
+      talkHint:"「今ハマってること」を聞くと、テンション高く話してくれるはず。" },
+    ISTJ:{ nickname:"管理者の堅実派", catch:"コツコツ確実に積み上げる人",
+      desc:"ルールや手順を大切にし、責任感を持って物事をやり遂げます。安定感があり、周りから信頼されやすいタイプ。",
+      strengths:["誠実さ","計画性","忍耐力"],
+      aruaru:["締切は前倒しで終わらせたい派","一度決めたルーティンは崩したくない"],
+      talkHint:"仕事の進め方や効率化の話をすると盛り上がるかも。" },
+    ISFJ:{ nickname:"擁護者の支援者", catch:"さりげない気配りの達人",
+      desc:"周りの人をそっとサポートするのが得意で、細やかな気配りで信頼を積み重ねます。安心感を与える存在。",
+      strengths:["気配り","誠実さ","安定感"],
+      aruaru:["気づいたら誰かのために動いている","自分のことは後回しにしがち"],
+      talkHint:"「いつもありがとう」から話しかけると喜ばれるはず。" },
+    ESTJ:{ nickname:"幹部気質の実行者", catch:"物事をきっちり進める仕切り屋",
+      desc:"計画を立てて着実に実行するのが得意で、組織やチームをまとめる役割が自然と回ってきます。",
+      strengths:["統率力","現実的な判断力","責任感"],
+      aruaru:["イベントの段取りを気づいたら仕切っている","ルールが守られてないとモヤモヤする"],
+      talkHint:"「今度の予定どうする？」と相談すると、的確に整理してくれるはず。" },
+    ESFJ:{ nickname:"領事気質のお世話役", catch:"場の調和を大事にするムードメーカー",
+      desc:"みんなが心地よく過ごせるよう気を配り、人と人をつなぐのが得意。社交的で世話好きな一面も。",
+      strengths:["協調性","気配り","社交性"],
+      aruaru:["飲み会の幹事をよく頼まれる","みんなが楽しんでるか気になってしまう"],
+      talkHint:"最近の近況やみんなの様子を聞くと話が弾むはず。" },
+    ISTP:{ nickname:"巨匠気質の職人", catch:"手を動かしながら考える実践派",
+      desc:"理屈より実際にやってみて理解するタイプ。冷静で、トラブルが起きても落ち着いて対処できます。",
+      strengths:["実践力","冷静さ","柔軟な対応力"],
+      aruaru:["説明書を読むより先に触ってみる","必要なときだけ喋る省エネ型"],
+      talkHint:"趣味や得意なことの話を振ると、意外と熱く語ってくれるかも。" },
+    ISFP:{ nickname:"冒険家気質の芸術家", catch:"自分の感性を大事にする自由人",
+      desc:"自分の好きや美意識に正直で、マイペースに過ごすのが心地いいタイプ。物静かだが内側に豊かな感性を持っています。",
+      strengths:["豊かな感性","柔軟さ","優しさ"],
+      aruaru:["好きなものに囲まれていると一番リラックスできる","争いごとは苦手で自然と距離を取る"],
+      talkHint:"好きな音楽や趣味の話をすると、自然体で話してくれるはず。" },
+    ESTP:{ nickname:"起業家気質のチャレンジャー", catch:"今この瞬間を楽しむ行動派",
+      desc:"フットワークが軽く、考えるより先に動いてしまうタイプ。場の空気を読みながら瞬発力で楽しませます。",
+      strengths:["行動力","瞬発力","社交性"],
+      aruaru:["飲み会では気づくと知らない人とも喋っている","じっとしているのが苦手"],
+      talkHint:"最近の楽しかった話やノリの良い話題で盛り上がるはず。" },
+    ESFP:{ nickname:"エンターテイナー気質の人気者", catch:"その場を明るくする太陽",
+      desc:"人を楽しませるのが大好きで、場の雰囲気をパッと明るくする存在。今を全力で楽しむタイプです。",
+      strengths:["社交性","明るさ","共感力"],
+      aruaru:["気づいたら飲み会の中心にいる","みんなが笑ってると自分も嬉しくなる"],
+      talkHint:"「今日楽しい？」と聞くだけで会話が弾むタイプ。" }
+  };
+
+  var state = { index:0, answers:[] };
+
+  var els = {
+    screens:{
+      start: document.getElementById("screen-start"),
+      quiz: document.getElementById("screen-quiz"),
+      result: document.getElementById("screen-result")
+    },
+    startBtn: document.getElementById("startBtn"),
+    progressFill: document.getElementById("progressFill"),
+    progressLabel: document.getElementById("progressLabel"),
+    qScene: document.getElementById("qScene"),
+    qText: document.getElementById("qText"),
+    choiceA: document.getElementById("choiceA"),
+    choiceB: document.getElementById("choiceB"),
+    backBtn: document.getElementById("backBtn"),
+    resultCode: document.getElementById("resultCode"),
+    resultNickname: document.getElementById("resultNickname"),
+    resultCatch: document.getElementById("resultCatch"),
+    resultDesc: document.getElementById("resultDesc"),
+    resultStrengths: document.getElementById("resultStrengths"),
+    resultAruaru: document.getElementById("resultAruaru"),
+    resultHint: document.getElementById("resultHint"),
+    restartBtn: document.getElementById("restartBtn")
+  };
+
+  function showScreen(name){
+    Object.keys(els.screens).forEach(function(key){
+      els.screens[key].classList.toggle("active", key === name);
+    });
+  }
+
+  function startQuiz(){
+    state.index = 0;
+    state.answers = [];
+    showScreen("quiz");
+    renderQuestion();
+  }
+
+  function renderQuestion(){
+    var q = QUESTIONS[state.index];
+    els.progressFill.style.width = ((state.index) / QUESTIONS.length * 100) + "%";
+    els.progressLabel.textContent = (state.index + 1) + " / " + QUESTIONS.length;
+    els.qScene.textContent = q.scene;
+    els.qText.textContent = q.text;
+    els.choiceA.innerHTML = '<span class="choice-letter">A</span>' + escapeHtml(q.a.text);
+    els.choiceB.innerHTML = '<span class="choice-letter">B</span>' + escapeHtml(q.b.text);
+    els.backBtn.disabled = state.index === 0;
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c];
+    });
+  }
+
+  function selectAnswer(choiceKey){
+    var q = QUESTIONS[state.index];
+    var pole = q[choiceKey].pole;
+    state.answers[state.index] = { axis:q.axis, pole:pole };
+    if(state.index < QUESTIONS.length - 1){
+      state.index++;
+      renderQuestion();
+    } else {
+      els.progressFill.style.width = "100%";
+      finishQuiz();
+    }
+  }
+
+  function goBack(){
+    if(state.index === 0) return;
+    state.index--;
+    renderQuestion();
+  }
+
+  function computeType(){
+    var tally = { E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0 };
+    state.answers.forEach(function(ans){
+      if(ans) tally[ans.pole]++;
+    });
+    var code = "";
+    code += tally.E >= tally.I ? "E" : "I";
+    code += tally.S >= tally.N ? "S" : "N";
+    code += tally.T >= tally.F ? "T" : "F";
+    code += tally.J >= tally.P ? "J" : "P";
+    return code;
+  }
+
+  function finishQuiz(){
+    var code = computeType();
+    var type = TYPES[code];
+    els.resultCode.textContent = code;
+    els.resultNickname.textContent = type.nickname;
+    els.resultCatch.textContent = type.catch;
+    els.resultDesc.textContent = type.desc;
+    fillList(els.resultStrengths, type.strengths);
+    fillList(els.resultAruaru, type.aruaru);
+    els.resultHint.textContent = type.talkHint;
+    showScreen("result");
+  }
+
+  function fillList(ul, items){
+    ul.innerHTML = "";
+    items.forEach(function(item){
+      var li = document.createElement("li");
+      li.textContent = item;
+      ul.appendChild(li);
+    });
+  }
+
+  els.startBtn.addEventListener("click", startQuiz);
+  els.choiceA.addEventListener("click", function(){ selectAnswer("a"); });
+  els.choiceB.addEventListener("click", function(){ selectAnswer("b"); });
+  els.backBtn.addEventListener("click", goBack);
+  els.restartBtn.addEventListener("click", startQuiz);
+
+})();
+</script>
+</body>
+</html>
