@@ -426,6 +426,52 @@
   .submit-note{text-align:center;font-size:12px;color:var(--sub);margin:0;}
   .btn:disabled{opacity:.55;cursor:default;}
   .btn:disabled:active{transform:none;}
+  .btn-secondary{
+    color:var(--ink);
+    background:rgba(255,255,255,0.9);
+    border:2px solid rgba(91,77,255,0.25);
+    box-shadow:0 8px 20px rgba(91,77,255,0.12);
+    transition:transform .12s ease;
+  }
+  .btn-secondary:active{transform:scale(.97);}
+
+  /* 画像保存のフォールバック（Web Share非対応時: 長押し保存の案内） */
+  .img-overlay{
+    position:fixed;
+    inset:0;
+    z-index:10;
+    background:rgba(30,22,60,0.72);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .img-overlay[hidden]{display:none;}
+  .img-overlay-inner{
+    background:#fff;
+    border-radius:20px;
+    padding:16px;
+    max-width:360px;
+    width:100%;
+    max-height:90vh;
+    overflow-y:auto;
+    text-align:center;
+  }
+  .img-overlay-inner p{
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+    margin:0 0 10px;
+    line-height:1.6;
+  }
+  .img-overlay-inner img{
+    display:block;
+    width:100%;
+    height:auto;
+    border-radius:12px;
+    border:1px solid rgba(91,77,255,0.15);
+  }
+  .img-overlay-inner .btn{margin-top:12px;}
 </style>
 </head>
 <body>
@@ -517,11 +563,21 @@
     <div class="result-actions">
       <button class="btn btn-primary" id="submitBtn">📊 会場の集計に参加する（匿名）</button>
       <p class="submit-note" id="submitNote">送信されるのはタイプ（4文字）だけ。名前などは送られません。</p>
+      <button class="btn btn-secondary" id="saveImageBtn">📸 結果カードを画像で保存</button>
       <button class="btn btn-primary" id="restartBtn">もう一回診断する</button>
     </div>
-    <p class="share-note">📸 結果カードをスクショして見せ合ってみよう！</p>
+    <p class="share-note">保存した結果カードを見せ合って、話のきっかけにしてみよう！</p>
   </section>
 
+</div>
+
+<!-- 画像保存フォールバック（Web Share / ダウンロード非対応時） -->
+<div class="img-overlay" id="imgOverlay" hidden>
+  <div class="img-overlay-inner">
+    <p>画像を長押しして「"写真"に追加」を選ぶと保存できます</p>
+    <img id="overlayImg" alt="診断結果カード">
+    <button class="btn btn-secondary" id="overlayCloseBtn">閉じる</button>
+  </div>
 </div>
 
 <script>
@@ -726,6 +782,7 @@
   var JUDGING_MS = 1400; // 「診断中…」演出の長さ
 
   var state = { index:0, answers:[] };
+  var lastResult = null; // { code, tally } 直近の診断結果（画像保存用）
 
   var els = {
     screens:{
@@ -758,7 +815,11 @@
     resultHint: document.getElementById("resultHint"),
     restartBtn: document.getElementById("restartBtn"),
     submitBtn: document.getElementById("submitBtn"),
-    submitNote: document.getElementById("submitNote")
+    submitNote: document.getElementById("submitNote"),
+    saveImageBtn: document.getElementById("saveImageBtn"),
+    imgOverlay: document.getElementById("imgOverlay"),
+    overlayImg: document.getElementById("overlayImg"),
+    overlayCloseBtn: document.getElementById("overlayCloseBtn")
   };
 
   function showScreen(name){
@@ -878,6 +939,7 @@
   function showResult(){
     var tally = computeTally();
     var code = computeType(tally);
+    lastResult = { code: code, tally: tally };
     var type = TYPES[code];
     var accent = GROUP_COLORS[type.group];
     els.resultCard.style.setProperty("--accent", accent);
@@ -981,6 +1043,394 @@
       });
   }
 
+  /* ===== 結果カードの画像保存 =====
+     結果カードをCanvas 2D APIで描き直してPNGを生成する（外部ライブラリ不使用）。
+     iPhone(Safari/Chrome)はWeb Share APIのシェアシート経由で「画像を保存」→写真アプリへ、
+     Windows Chromeなどは <a download> で直接ダウンロードする。 */
+
+  var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // iPadOSはMac風UAになるため
+
+  function shareFont(weight, size){
+    return weight + " " + size + 'px -apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif';
+  }
+
+  function roundedRectPath(ctx, x, y, w, h, r){
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // 日本語向けに1文字単位で折り返す
+  function wrapLines(ctx, text, maxW){
+    var lines = [], line = "";
+    for(var i = 0; i < text.length; i++){
+      var ch = text.charAt(i);
+      if(line && ctx.measureText(line + ch).width > maxW){
+        lines.push(line);
+        line = ch;
+      } else {
+        line += ch;
+      }
+    }
+    if(line) lines.push(line);
+    return lines;
+  }
+
+  // dims=null なら高さ計測のみ（描画しない）。戻り値 { total, cardBottom }
+  function drawShare(ctx, W, res, dims){
+    var paint = !!dims;
+    var type = TYPES[res.code];
+    var tally = res.tally;
+    var accent = GROUP_COLORS[type.group];
+    var INK = "#2b2356", SUB = "#5b5478", PINK = "#ff5e7e", PURPLE = "#9b6dff";
+    var M = 48, P = 56;
+    var cardX = M, cardW = W - M * 2;
+    var left = cardX + P, contentW = cardW - P * 2;
+    var cx = W / 2;
+    var cardTop = M;
+    var y = cardTop + 60;
+
+    ctx.textBaseline = "top";
+
+    if(paint){
+      var bg = ctx.createLinearGradient(0, 0, W, dims.total);
+      bg.addColorStop(0, "#e9edfd");
+      bg.addColorStop(0.5, "#f1e9fd");
+      bg.addColorStop(1, "#ffe9ef");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, dims.total);
+      ctx.save();
+      ctx.shadowColor = "rgba(91,77,255,0.22)";
+      ctx.shadowBlur = 50;
+      ctx.shadowOffsetY = 24;
+      roundedRectPath(ctx, cardX, cardTop, cardW, dims.cardBottom - cardTop, 48);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.restore();
+      ctx.save();
+      roundedRectPath(ctx, cardX, cardTop, cardW, dims.cardBottom - cardTop, 48);
+      ctx.clip();
+      ctx.fillStyle = accent;
+      ctx.fillRect(cardX, cardTop, cardW, 12);
+      ctx.restore();
+    }
+
+    function drawText(str, x, fnt, color, align){
+      ctx.font = fnt;
+      if(paint){
+        ctx.fillStyle = color;
+        ctx.textAlign = align || "left";
+        ctx.fillText(str, x, y);
+      }
+    }
+
+    function paragraph(str, size, lineH, color){
+      var fnt = shareFont(600, size);
+      ctx.font = fnt;
+      wrapLines(ctx, str, contentW).forEach(function(ln){
+        drawText(ln, left, fnt, color);
+        y += Math.round(size * lineH);
+      });
+    }
+
+    function bullets(items){
+      var fnt = shareFont(600, 30);
+      items.forEach(function(item, idx){
+        ctx.font = fnt;
+        var lines = wrapLines(ctx, item, contentW - 40);
+        if(paint){
+          ctx.fillStyle = accent;
+          ctx.beginPath();
+          ctx.arc(left + 10, y + 18, 6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        lines.forEach(function(ln){
+          drawText(ln, left + 40, fnt, INK);
+          y += 48;
+        });
+        if(idx < items.length - 1) y += 6;
+      });
+    }
+
+    function sectionTitle(title){
+      y += 34;
+      if(paint){
+        ctx.strokeStyle = "rgba(91,77,255,0.12)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(left + contentW, y);
+        ctx.stroke();
+      }
+      y += 34;
+      drawText(title, left, shareFont(800, 28), PURPLE);
+      y += 28 + 18;
+    }
+
+    function drawMatchBox(tag, match, tagColor){
+      var pad = 30;
+      var reasonFnt = shareFont(600, 24);
+      ctx.font = reasonFnt;
+      var reasonLines = wrapLines(ctx, match.reason, contentW - pad * 2);
+      var boxH = pad + 42 + 16 + 34 + 12 + reasonLines.length * 38 - 8 + pad;
+      if(paint){
+        roundedRectPath(ctx, left, y, contentW, boxH, 24);
+        ctx.fillStyle = "rgba(91,77,255,0.05)";
+        ctx.fill();
+      }
+      var top = y;
+      y += pad;
+      ctx.font = shareFont(800, 22);
+      var tagW = ctx.measureText(tag).width + 40;
+      if(paint){
+        roundedRectPath(ctx, left + pad, y, tagW, 42, 21);
+        ctx.fillStyle = tagColor;
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.fillText(tag, left + pad + tagW / 2, y + 10);
+      }
+      y += 42 + 16;
+      ctx.font = shareFont(800, 34);
+      var codeW = ctx.measureText(match.code).width;
+      drawText(match.code, left + pad, shareFont(800, 34), INK);
+      if(paint){
+        ctx.font = shareFont(600, 22);
+        ctx.fillStyle = SUB;
+        ctx.textAlign = "left";
+        ctx.fillText(TYPES[match.code].nickname, left + pad + codeW + 14, y + 10);
+      }
+      y += 34 + 12;
+      reasonLines.forEach(function(ln){
+        drawText(ln, left + pad, reasonFnt, SUB);
+        y += 38;
+      });
+      y = top + boxH;
+    }
+
+    // --- ヘッダー部 ---
+    drawText("あなたのタイプは", cx, shareFont(700, 26), SUB, "center");
+    y += 26 + 26;
+
+    var emblemR = 92;
+    if(paint){
+      ctx.beginPath();
+      ctx.arc(cx, y + emblemR, emblemR, 0, Math.PI * 2);
+      ctx.fillStyle = accent + "22";
+      ctx.fill();
+      ctx.font = shareFont(400, 96);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = INK;
+      ctx.fillText(type.emoji, cx, y + emblemR + 8);
+      ctx.textBaseline = "top";
+    }
+    y += emblemR * 2 + 24;
+
+    ctx.font = shareFont(900, 96);
+    if(paint){
+      var codeTextW = ctx.measureText(res.code).width;
+      var grad = ctx.createLinearGradient(cx - codeTextW / 2, 0, cx + codeTextW / 2, 0);
+      grad.addColorStop(0, accent);
+      grad.addColorStop(1, PINK);
+      ctx.fillStyle = grad;
+      ctx.textAlign = "center";
+      ctx.fillText(res.code, cx, y);
+    }
+    y += 96 + 16;
+
+    drawText(type.nickname, cx, shareFont(800, 40), INK, "center");
+    y += 40 + 14;
+    drawText(type.catch, cx, shareFont(600, 28), SUB, "center");
+    y += 28 + 22;
+
+    var rare = type.jp < 5;
+    var rarityText = "日本では約" + type.jp.toFixed(1) + "%・世界では約" +
+      type.world.toFixed(1) + "%" + (rare ? " ✨レア!" : "");
+    ctx.font = shareFont(800, 24);
+    var pillW = ctx.measureText(rarityText).width + 52;
+    if(paint){
+      roundedRectPath(ctx, cx - pillW / 2, y, pillW, 52, 26);
+      ctx.fillStyle = rare ? "rgba(255,94,126,0.14)" : "rgba(91,77,255,0.08)";
+      ctx.fill();
+      ctx.fillStyle = rare ? "#e0435f" : SUB;
+      ctx.textAlign = "center";
+      ctx.fillText(rarityText, cx, y + 13);
+    }
+    y += 52;
+
+    // --- 各セクション ---
+    sectionTitle("🔍 特徴");
+    paragraph(type.desc, 30, 1.65, INK);
+
+    sectionTitle("💪 強み");
+    bullets(type.strengths);
+
+    sectionTitle("😂 あるある");
+    bullets(type.aruaru);
+
+    // 話しかけるならヒント（グラデーションのボックス）
+    y += 36;
+    var hintPad = 34;
+    var hintFnt = shareFont(600, 30);
+    ctx.font = hintFnt;
+    var hintLines = wrapLines(ctx, type.talkHint, contentW - hintPad * 2);
+    var hintH = hintPad + 28 + 18 + hintLines.length * 48 - 12 + hintPad;
+    if(paint){
+      var hg = ctx.createLinearGradient(left, y, left + contentW, y + hintH);
+      hg.addColorStop(0, "rgba(91,77,255,0.08)");
+      hg.addColorStop(1, "rgba(255,94,126,0.08)");
+      roundedRectPath(ctx, left, y, contentW, hintH, 24);
+      ctx.fillStyle = hg;
+      ctx.fill();
+    }
+    var hintTop = y;
+    y += hintPad;
+    drawText("💬 話しかけるなら", left + hintPad, shareFont(800, 28), PURPLE);
+    y += 28 + 18;
+    hintLines.forEach(function(ln){
+      drawText(ln, left + hintPad, hintFnt, INK);
+      y += 48;
+    });
+    y = hintTop + hintH;
+
+    // 4軸メーター
+    sectionTitle("🧭 回答の内訳");
+    AXES.forEach(function(ax, i){
+      var l = tally[ax.left], r = tally[ax.right];
+      var leftWin = l >= r;
+      var labelW = 150, gap = 16;
+      var trackX = left + labelW + gap;
+      var trackW = contentW - (labelW + gap) * 2;
+      var trackH = 38;
+      if(paint){
+        ctx.font = shareFont(leftWin ? 800 : 700, 24);
+        ctx.fillStyle = leftWin ? accent : SUB;
+        ctx.textAlign = "right";
+        ctx.fillText(ax.leftText, left + labelW, y + 7);
+        ctx.font = shareFont(leftWin ? 700 : 800, 24);
+        ctx.fillStyle = leftWin ? SUB : accent;
+        ctx.textAlign = "left";
+        ctx.fillText(ax.rightText, left + contentW - labelW, y + 7);
+        roundedRectPath(ctx, trackX, y, trackW, trackH, trackH / 2);
+        ctx.fillStyle = "rgba(91,77,255,0.10)";
+        ctx.fill();
+        var fillW = trackW * (Math.max(l, r) / 3);
+        var fillX = leftWin ? trackX : trackX + trackW - fillW;
+        ctx.save();
+        roundedRectPath(ctx, trackX, y, trackW, trackH, trackH / 2);
+        ctx.clip();
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = accent;
+        roundedRectPath(ctx, fillX, y, fillW, trackH, trackH / 2);
+        ctx.fill();
+        ctx.restore();
+        ctx.save();
+        ctx.font = shareFont(800, 22);
+        ctx.textAlign = "center";
+        ctx.shadowColor = "rgba(255,255,255,0.9)";
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = INK;
+        ctx.fillText(l + " : " + r, trackX + trackW / 2, y + 9);
+        ctx.restore();
+      }
+      y += trackH + (i < AXES.length - 1 ? 20 : 0);
+    });
+
+    // 相性
+    sectionTitle("🤝 相性");
+    drawMatchBox("話が合いそう", type.goodMatch, accent);
+    y += 20;
+    drawMatchBox("意外な名コンビ", type.funMatch, PINK);
+    y += 28;
+    drawText("会場で探して話しかけてみよう！", cx, shareFont(600, 24), SUB, "center");
+    y += 24;
+
+    var cardBottom = y + P;
+    var footY = cardBottom + 40;
+    if(paint){
+      ctx.font = shareFont(700, 24);
+      ctx.fillStyle = SUB;
+      ctx.textAlign = "center";
+      ctx.fillText("2026-07-15 懇親会 ミニMBTI診断", cx, footY);
+    }
+    return { total: footY + 24 + 44, cardBottom: cardBottom };
+  }
+
+  function buildShareCanvas(res){
+    var W = 1080;
+    var probe = document.createElement("canvas");
+    probe.width = 10;
+    probe.height = 10;
+    var dims = drawShare(probe.getContext("2d"), W, res, null);
+    var canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = Math.ceil(dims.total);
+    drawShare(canvas.getContext("2d"), W, res, dims);
+    return canvas;
+  }
+
+  function showImageOverlay(url){
+    els.overlayImg.src = url;
+    els.imgOverlay.hidden = false;
+  }
+
+  function saveResultImage(){
+    if(!lastResult) return;
+    var origText = els.saveImageBtn.textContent;
+    els.saveImageBtn.disabled = true;
+    els.saveImageBtn.textContent = "画像を作成中…";
+    function done(){
+      els.saveImageBtn.disabled = false;
+      els.saveImageBtn.textContent = origText;
+    }
+    var canvas;
+    try {
+      canvas = buildShareCanvas(lastResult);
+    } catch(e){
+      done();
+      return;
+    }
+    var fileName = "mbti-" + lastResult.code + ".png";
+    canvas.toBlob(function(blob){
+      done();
+      if(!blob){
+        showImageOverlay(canvas.toDataURL("image/png"));
+        return;
+      }
+      var file = null;
+      try { file = new File([blob], fileName, { type: "image/png" }); } catch(e){ /* File非対応環境 */ }
+      // iPhone: シェアシートの「画像を保存」で写真アプリに保存できる
+      if(IS_IOS && file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+        navigator.share({ files: [file] }).catch(function(err){
+          if(err && err.name === "AbortError") return; // ユーザーがキャンセルしただけ
+          showImageOverlay(URL.createObjectURL(blob));
+        });
+        return;
+      }
+      // Windows Chromeなど: 直接ダウンロード
+      var a = document.createElement("a");
+      if(typeof a.download !== "undefined"){
+        var url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 10000);
+        return;
+      }
+      // 最終フォールバック: 画像を表示して長押し保存してもらう
+      showImageOverlay(URL.createObjectURL(blob));
+    }, "image/png");
+  }
+
   els.startBtn.addEventListener("click", startQuiz);
   els.choiceA.addEventListener("click", function(){ selectAnswer("a"); });
   els.choiceB.addEventListener("click", function(){ selectAnswer("b"); });
@@ -988,6 +1438,11 @@
   els.restartBtn.addEventListener("click", startQuiz);
   els.submitBtn.addEventListener("click", function(){
     submitResult(els.resultCode.textContent);
+  });
+  els.saveImageBtn.addEventListener("click", saveResultImage);
+  els.overlayCloseBtn.addEventListener("click", function(){
+    els.imgOverlay.hidden = true;
+    els.overlayImg.removeAttribute("src");
   });
 
 })();
