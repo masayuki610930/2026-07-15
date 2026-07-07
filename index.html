@@ -250,6 +250,19 @@
     border-color:var(--purple);
     background:linear-gradient(90deg,rgba(91,77,255,0.08),rgba(255,94,126,0.08));
   }
+  /* マウス環境のみホバーで色づける（iOSのホバー貼り付き回避のため hover:hover 限定） */
+  @media (hover:hover){
+    .choice-btn:hover{
+      border-color:var(--purple);
+      background:linear-gradient(90deg,rgba(91,77,255,0.08),rgba(255,94,126,0.08));
+    }
+  }
+  /* タップ後、次の設問に進む前に0.25秒見せる選択ハイライト */
+  .choice-btn.selected{
+    border-color:var(--purple);
+    background:linear-gradient(90deg,rgba(91,77,255,0.16),rgba(255,94,126,0.16));
+    transform:scale(.97);
+  }
   .choice-letter{
     display:inline-flex;
     align-items:center;
@@ -781,20 +794,32 @@
     });
   }
 
+  var SELECT_FEEDBACK_MS = 250; // 選択ハイライトを見せる時間
+  var transitioning = false;    // ハイライト表示中の多重タップ防止
+
   function selectAnswer(choiceKey){
+    if(transitioning) return;
     var q = QUESTIONS[state.index];
     var pole = q[choiceKey].pole;
     state.answers[state.index] = { axis:q.axis, pole:pole };
-    if(state.index < QUESTIONS.length - 1){
-      state.index++;
-      renderQuestion();
-    } else {
-      els.progressFill.style.width = "100%";
-      finishQuiz();
-    }
+    var btn = choiceKey === "a" ? els.choiceA : els.choiceB;
+    btn.classList.add("selected");
+    transitioning = true;
+    setTimeout(function(){
+      transitioning = false;
+      btn.classList.remove("selected");
+      if(state.index < QUESTIONS.length - 1){
+        state.index++;
+        renderQuestion();
+      } else {
+        els.progressFill.style.width = "100%";
+        finishQuiz();
+      }
+    }, SELECT_FEEDBACK_MS);
   }
 
   function goBack(){
+    if(transitioning) return;
     if(state.index === 0) return;
     state.index--;
     renderQuestion();

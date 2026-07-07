@@ -130,6 +130,20 @@
     padding:6px 16px;
   }
   .highlight.show{display:inline-block;}
+  .resume-btn{
+    display:none;
+    margin-top:10px;
+    border:none;
+    cursor:pointer;
+    font-size:14px;
+    font-weight:800;
+    color:#fff;
+    background:linear-gradient(90deg,var(--blue),var(--purple));
+    border-radius:999px;
+    padding:9px 18px;
+    box-shadow:0 8px 20px rgba(91,77,255,0.3);
+  }
+  .resume-btn.show{display:inline-block;}
 
   /* 新着トースト（§15.5） */
   .toast{
@@ -275,7 +289,7 @@
     .highlight{font-size:16px;}
     .race-title{font-size:17px;}
     .bar-row{height:34px;padding:3px 10px;}
-    .bar-label{flex-basis:220px;font-size:15px;}
+    .bar-label{flex-basis:248px;font-size:15px;} /* 最長「ESFP エンターテイナー気質の人気者」が収まる幅 */
     .bar-label .nick{font-size:13px;}
     .bar-track{height:16px;}
     .bar-count{flex-basis:64px;font-size:16px;}
@@ -319,6 +333,7 @@
         <span><i style="background:#ff9f43"></i>探検家</span>
       </div>
       <div class="highlight" id="highlightLabel"></div>
+      <div><button class="resume-btn" id="resumeBtn">⏸ 自動更新を停止しました（20分経過）— タップで再開</button></div>
     </div>
 
     <div class="card race-card">
@@ -380,6 +395,7 @@
   }
   var ROW_HEIGHT = calcRowHeight();
   var POLL_INTERVAL_MS = 5000;
+  var AUTO_STOP_MS = 20 * 60 * 1000; // 20分でポーリングを自動停止（無人のウィンドウが延々GASを叩き続けないため）
   // 到達を祝う節目（参加予定人数の表示はしない: 任意参加のため期待人数を画面に出さない）
   var MILESTONES = [10, 25, 50, 75, 100];
   var TOAST_MS = 3500;
@@ -395,6 +411,7 @@
   var raceContainer = document.getElementById("raceContainer");
   var tileGrid = document.getElementById("tileGrid");
   var highlightLabel = document.getElementById("highlightLabel");
+  var resumeBtn = document.getElementById("resumeBtn");
   var toastEl = document.getElementById("toast");
   var confettiLayer = document.getElementById("confettiLayer");
 
@@ -404,6 +421,8 @@
   var lastCountsJson = null;
   var fetching = false;
   var pollTimer = null;
+  var autoStopTimer = null;
+  var currentKey = null;
   var firstLoad = true;
   var passedMilestones = {};
   var completeFired = false;
@@ -631,6 +650,22 @@
       clearInterval(pollTimer);
       pollTimer = null;
     }
+    if(autoStopTimer){
+      clearTimeout(autoStopTimer);
+      autoStopTimer = null;
+    }
+  }
+
+  // ポーリング開始（再開ボタンからも呼ぶ）。AUTO_STOP_MS 経過で自動停止し再開ボタンを出す
+  function startPolling(){
+    stopPolling();
+    resumeBtn.classList.remove("show");
+    poll(currentKey);
+    pollTimer = setInterval(function(){ poll(currentKey); }, POLL_INTERVAL_MS);
+    autoStopTimer = setTimeout(function(){
+      stopPolling();
+      resumeBtn.classList.add("show");
+    }, AUTO_STOP_MS);
   }
 
   function poll(key){
@@ -682,6 +717,7 @@
     }
     guardCard.style.display = "none";
     loadingCard.style.display = "";
+    currentKey = key;
     buildRace();
     buildTiles();
     window.addEventListener("resize", function(){
@@ -691,8 +727,8 @@
       raceContainer.style.height = (ROW_HEIGHT * CODES_ALPHA.length) + "px";
       renderRace(lastCounts); // 新しい行高で並び位置を引き直す
     });
-    poll(key);
-    pollTimer = setInterval(function(){ poll(key); }, POLL_INTERVAL_MS);
+    resumeBtn.addEventListener("click", startPolling);
+    startPolling();
   }
 
   init();
