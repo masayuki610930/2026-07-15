@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>2026-07-15 懇親会</title>
 <meta name="description" content="12の質問に答えるとあなたのタイプがわかる、懇親会向けミニMBTI診断。">
+<meta property="og:title" content="あなたは何タイプ？ ミニMBTI診断">
+<meta property="og:description" content="12問・約1分で「会話タイプ」を診断。2026-07-15 懇親会">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://masayuki610930.github.io/2026-07-15/">
 <style>
   :root{
     --blue:#5b8def;
@@ -270,22 +274,61 @@
     padding:10px;
   }
   .back-link:disabled{opacity:0;pointer-events:none;}
+  .q-enter{animation:qSlide .25s ease;}
+  @keyframes qSlide{from{opacity:0;transform:translateX(18px);}to{opacity:1;transform:translateX(0);}}
 
-  /* result */
-  .result-card{text-align:center;}
-  .result-label{font-size:13px;color:var(--sub);font-weight:700;margin:0 0 4px;}
+  /* judging（診断中インタースティシャル） */
+  .judging-card{text-align:center;margin-top:auto;margin-bottom:auto;padding:46px 22px;}
+  .judging-emoji{font-size:56px;animation:judgePulse .9s ease-in-out infinite;}
+  @keyframes judgePulse{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
+  .judging-text{font-size:17px;font-weight:800;color:var(--ink);margin:16px 0 0;}
+  .judging-text .dot{animation:dotBlink 1.2s infinite;}
+  .judging-text .dot:nth-child(2){animation-delay:.2s;}
+  .judging-text .dot:nth-child(3){animation-delay:.4s;}
+  @keyframes dotBlink{0%,100%{opacity:.15;}50%{opacity:1;}}
+
+  /* result（--accent/--accent-soft はタイプのグループ色をJSで注入） */
+  .result-card{
+    text-align:center;
+    --accent:var(--purple);
+    --accent-soft:rgba(155,109,255,0.13);
+    border-top:6px solid var(--accent);
+  }
+  .result-label{font-size:13px;color:var(--sub);font-weight:700;margin:0 0 8px;}
+  .result-emblem{
+    width:92px;
+    height:92px;
+    margin:0 auto 10px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:46px;
+    background:var(--accent-soft);
+  }
   .result-code{
     font-size:48px;
     font-weight:900;
     letter-spacing:.04em;
     margin:0 0 6px;
-    background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));
+    background:linear-gradient(90deg,var(--accent),var(--pink));
     -webkit-background-clip:text;
     background-clip:text;
     -webkit-text-fill-color:transparent;
   }
   .result-nickname{font-size:19px;font-weight:800;margin:0 0 6px;color:var(--ink);}
-  .result-catch{font-size:14px;color:var(--sub);margin:0 0 22px;}
+  .result-catch{font-size:14px;color:var(--sub);margin:0 0 12px;}
+  .rarity-badge{
+    display:inline-block;
+    font-size:12px;
+    font-weight:800;
+    color:var(--sub);
+    background:rgba(91,77,255,0.08);
+    border-radius:999px;
+    padding:6px 13px;
+    margin:0 0 8px;
+  }
+  .rarity-badge.rare{color:#e0435f;background:rgba(255,94,126,0.14);}
   .result-section{
     text-align:left;
     border-top:1px solid rgba(91,77,255,0.12);
@@ -312,6 +355,59 @@
     padding:16px;
     margin-top:18px;
   }
+
+  /* 4軸メーター */
+  .axis-meter{display:flex;flex-direction:column;gap:10px;}
+  .axis-row{display:flex;align-items:center;gap:10px;}
+  .axis-pole{flex:0 0 58px;font-size:12px;font-weight:700;color:var(--sub);white-space:nowrap;}
+  .axis-pole.left{text-align:right;}
+  .axis-pole.win{color:var(--accent);font-weight:800;}
+  .axis-track{
+    position:relative;
+    flex:1;
+    height:18px;
+    border-radius:999px;
+    background:rgba(91,77,255,0.10);
+    overflow:hidden;
+  }
+  .axis-fill{position:absolute;top:0;bottom:0;background:var(--accent);opacity:.8;border-radius:999px;}
+  .axis-fill.from-left{left:0;}
+  .axis-fill.from-right{right:0;}
+  .axis-score{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    font-weight:800;
+    color:var(--ink);
+    text-shadow:0 0 4px rgba(255,255,255,0.9);
+  }
+
+  /* 相性 */
+  .match-item{
+    background:rgba(255,255,255,0.6);
+    border-radius:16px;
+    padding:12px 14px;
+    margin-top:10px;
+    text-align:left;
+  }
+  .match-tag{
+    display:inline-block;
+    font-size:11px;
+    font-weight:800;
+    color:#fff;
+    border-radius:999px;
+    padding:3px 10px;
+    margin-bottom:6px;
+    background:var(--accent);
+  }
+  .match-item.fun .match-tag{background:var(--pink);}
+  .match-line{font-size:16px;font-weight:800;color:var(--ink);margin:0;}
+  .match-line .match-nick{font-size:12px;color:var(--sub);font-weight:600;margin-left:6px;}
+  .match-reason{font-size:13px;color:var(--sub);margin:4px 0 0;line-height:1.6;}
+  .match-note{font-size:12px;color:var(--sub);margin:12px 0 0;text-align:center;}
   .result-actions{margin-top:22px;display:flex;flex-direction:column;gap:10px;}
   .share-note{text-align:center;font-size:12px;color:var(--sub);margin:14px 0 0;}
   .submit-note{text-align:center;font-size:12px;color:var(--sub);margin:0;}
@@ -349,7 +445,7 @@
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
       <div class="progress-label" id="progressLabel">1 / 12</div>
     </div>
-    <div class="card">
+    <div class="card" id="quizCard">
       <span class="q-scene" id="qScene">日常</span>
       <h2 class="q-text" id="qText"></h2>
       <div class="choices">
@@ -360,13 +456,23 @@
     <button class="back-link" id="backBtn">← ひとつ戻る</button>
   </section>
 
+  <!-- JUDGING -->
+  <section class="screen" id="screen-judging">
+    <div class="card judging-card">
+      <div class="judging-emoji">🔮</div>
+      <p class="judging-text">診断中<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></p>
+    </div>
+  </section>
+
   <!-- RESULT -->
   <section class="screen" id="screen-result">
-    <div class="card result-card">
+    <div class="card result-card" id="resultCard">
       <p class="result-label">あなたのタイプは</p>
+      <div class="result-emblem" id="resultEmblem">🦄</div>
       <h1 class="result-code" id="resultCode">ENFP</h1>
       <p class="result-nickname" id="resultNickname"></p>
       <p class="result-catch" id="resultCatch"></p>
+      <p class="rarity-badge" id="rarityBadge"></p>
 
       <div class="result-section">
         <h3>🔍 特徴</h3>
@@ -383,6 +489,16 @@
       <div class="result-section result-hint">
         <h3>💬 話しかけるなら</h3>
         <p id="resultHint"></p>
+      </div>
+      <div class="result-section">
+        <h3>🧭 回答の内訳</h3>
+        <div class="axis-meter" id="axisMeter"></div>
+      </div>
+      <div class="result-section">
+        <h3>🤝 相性</h3>
+        <div class="match-item good" id="matchGood"></div>
+        <div class="match-item fun" id="matchFun"></div>
+        <p class="match-note">会場で探して話しかけてみよう！</p>
       </div>
     </div>
     <div class="result-actions">
@@ -524,14 +640,94 @@
       talkHint:"「今日楽しい？」と聞くだけで会話が弾むタイプ。" }
   };
 
+  // 4気質グループの色（dashboard.htmlと共通）
+  var GROUP_COLORS = {
+    analyst: "#9b6dff",
+    diplomat: "#34c39a",
+    guardian: "#5b8def",
+    explorer: "#ff9f43"
+  };
+
+  // タイプのメタ情報（絵文字・グループ・日本/世界%・相性）。DESIGN.md §5/§5.1/§15.4 が正
+  var TYPE_META = {
+    INTJ:{ emoji:"👑", group:"analyst", jp:3.7, world:2.1,
+      goodMatch:{ code:"ENTP", reason:"戦略家と発想家、議論が止まらない" },
+      funMatch:{ code:"ESFP", reason:"綿密な計画に、太陽の即興力" } },
+    INTP:{ emoji:"🧪", group:"analyst", jp:7.2, world:3.3,
+      goodMatch:{ code:"ENTJ", reason:"分析×実行の最強タッグ" },
+      funMatch:{ code:"ESFJ", reason:"理屈の世界に、あたたかい現実感覚" } },
+    ENTJ:{ emoji:"🏁", group:"analyst", jp:2.6, world:1.8,
+      goodMatch:{ code:"INTP", reason:"分析×実行の最強タッグ" },
+      funMatch:{ code:"ISFP", reason:"猪突猛進に、マイペースの潤い" } },
+    ENTP:{ emoji:"💬", group:"analyst", jp:5.2, world:3.2,
+      goodMatch:{ code:"INTJ", reason:"戦略家と発想家、議論が止まらない" },
+      funMatch:{ code:"ISFJ", reason:"自由な発想を、そっと支える" } },
+    INFJ:{ emoji:"💡", group:"diplomat", jp:6.8, world:1.5,
+      goodMatch:{ code:"ENFP", reason:"深い話がどこまでも続く" },
+      funMatch:{ code:"ESTP", reason:"深読み派を、行動力が連れ出す" } },
+    INFP:{ emoji:"💗", group:"diplomat", jp:16.4, world:4.4,
+      goodMatch:{ code:"ENFJ", reason:"価値観を丸ごと受け止めてくれる" },
+      funMatch:{ code:"ESTJ", reason:"夢見る人と、現実に強い人" } },
+    ENFJ:{ emoji:"👥", group:"diplomat", jp:5.6, world:2.5,
+      goodMatch:{ code:"INFP", reason:"価値観を丸ごと受け止めてくれる" },
+      funMatch:{ code:"ISTP", reason:"世話焼きと、寡黙な職人" } },
+    ENFP:{ emoji:"📣", group:"diplomat", jp:13.8, world:8.1,
+      goodMatch:{ code:"INFJ", reason:"深い話がどこまでも続く" },
+      funMatch:{ code:"ISTJ", reason:"自由人と堅実派の凸凹コンビ" } },
+    ISTJ:{ emoji:"⚖️", group:"guardian", jp:3.6, world:11.6,
+      goodMatch:{ code:"ESTJ", reason:"段取り談義で意気投合" },
+      funMatch:{ code:"ENFP", reason:"自由人と堅実派の凸凹コンビ" } },
+    ISFJ:{ emoji:"🛡️", group:"guardian", jp:6.8, world:13.8,
+      goodMatch:{ code:"ESFJ", reason:"気配り同士、居心地抜群" },
+      funMatch:{ code:"ENTP", reason:"自由な発想を、そっと支える" } },
+    ESTJ:{ emoji:"🏢", group:"guardian", jp:3.4, world:8.7,
+      goodMatch:{ code:"ISTJ", reason:"段取り談義で意気投合" },
+      funMatch:{ code:"INFP", reason:"夢見る人と、現実に強い人" } },
+    ESFJ:{ emoji:"🤝", group:"guardian", jp:6.8, world:12.3,
+      goodMatch:{ code:"ISFJ", reason:"気配り同士、居心地抜群" },
+      funMatch:{ code:"INTP", reason:"理屈の世界に、あたたかい現実感覚" } },
+    ISTP:{ emoji:"🔧", group:"explorer", jp:2.9, world:5.4,
+      goodMatch:{ code:"ESTP", reason:"ノリと実践の現場コンビ" },
+      funMatch:{ code:"ENFJ", reason:"世話焼きと、寡黙な職人" } },
+    ISFP:{ emoji:"🎨", group:"explorer", jp:6.7, world:8.8,
+      goodMatch:{ code:"ESFP", reason:"感性で通じ合う" },
+      funMatch:{ code:"ENTJ", reason:"猪突猛進に、マイペースの潤い" } },
+    ESTP:{ emoji:"🚀", group:"explorer", jp:2.6, world:4.3,
+      goodMatch:{ code:"ISTP", reason:"ノリと実践の現場コンビ" },
+      funMatch:{ code:"INFJ", reason:"深読み派を、行動力が連れ出す" } },
+    ESFP:{ emoji:"🎤", group:"explorer", jp:6.0, world:8.5,
+      goodMatch:{ code:"ISFP", reason:"感性で通じ合う" },
+      funMatch:{ code:"INTJ", reason:"綿密な計画に、太陽の即興力" } }
+  };
+  Object.keys(TYPE_META).forEach(function(code){
+    Object.keys(TYPE_META[code]).forEach(function(k){ TYPES[code][k] = TYPE_META[code][k]; });
+  });
+
+  var AXES = [
+    { left:"E", right:"I", leftText:"外向 E", rightText:"I 内向" },
+    { left:"S", right:"N", leftText:"現実 S", rightText:"N 直感" },
+    { left:"T", right:"F", leftText:"論理 T", rightText:"F 共感" },
+    { left:"J", right:"P", leftText:"計画 J", rightText:"P 柔軟" }
+  ];
+
+  var JUDGING_MS = 1400; // 「診断中…」演出の長さ
+
   var state = { index:0, answers:[] };
 
   var els = {
     screens:{
       start: document.getElementById("screen-start"),
       quiz: document.getElementById("screen-quiz"),
+      judging: document.getElementById("screen-judging"),
       result: document.getElementById("screen-result")
     },
+    quizCard: document.getElementById("quizCard"),
+    resultCard: document.getElementById("resultCard"),
+    resultEmblem: document.getElementById("resultEmblem"),
+    rarityBadge: document.getElementById("rarityBadge"),
+    axisMeter: document.getElementById("axisMeter"),
+    matchGood: document.getElementById("matchGood"),
+    matchFun: document.getElementById("matchFun"),
     startBtn: document.getElementById("startBtn"),
     progressFill: document.getElementById("progressFill"),
     progressLabel: document.getElementById("progressLabel"),
@@ -574,6 +770,9 @@
     els.choiceA.innerHTML = '<span class="choice-letter">A</span>' + escapeHtml(q.a.text);
     els.choiceB.innerHTML = '<span class="choice-letter">B</span>' + escapeHtml(q.b.text);
     els.backBtn.disabled = state.index === 0;
+    els.quizCard.classList.remove("q-enter");
+    void els.quizCard.offsetWidth; // reflowを挟んでアニメーションを再発火させる
+    els.quizCard.classList.add("q-enter");
   }
 
   function escapeHtml(str){
@@ -601,11 +800,15 @@
     renderQuestion();
   }
 
-  function computeType(){
+  function computeTally(){
     var tally = { E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0 };
     state.answers.forEach(function(ans){
       if(ans) tally[ans.pole]++;
     });
+    return tally;
+  }
+
+  function computeType(tally){
     var code = "";
     code += tally.E >= tally.I ? "E" : "I";
     code += tally.S >= tally.N ? "S" : "N";
@@ -614,16 +817,61 @@
     return code;
   }
 
+  function renderAxisMeter(tally){
+    els.axisMeter.innerHTML = "";
+    AXES.forEach(function(ax){
+      var l = tally[ax.left];
+      var r = tally[ax.right];
+      var leftWin = l >= r; // 各軸3問なので同点は発生しない
+      var winPct = Math.max(l, r) / 3 * 100;
+      var row = document.createElement("div");
+      row.className = "axis-row";
+      row.innerHTML =
+        '<span class="axis-pole left' + (leftWin ? ' win' : '') + '">' + ax.leftText + '</span>' +
+        '<div class="axis-track">' +
+          '<div class="axis-fill ' + (leftWin ? 'from-left' : 'from-right') + '" style="width:' + winPct + '%"></div>' +
+          '<span class="axis-score">' + l + ' : ' + r + '</span>' +
+        '</div>' +
+        '<span class="axis-pole right' + (leftWin ? '' : ' win') + '">' + ax.rightText + '</span>';
+      els.axisMeter.appendChild(row);
+    });
+  }
+
+  function renderMatch(el, tagText, match){
+    el.innerHTML =
+      '<span class="match-tag">' + escapeHtml(tagText) + '</span>' +
+      '<p class="match-line">' + match.code +
+        '<span class="match-nick">' + escapeHtml(TYPES[match.code].nickname) + '</span></p>' +
+      '<p class="match-reason">' + escapeHtml(match.reason) + '</p>';
+  }
+
   function finishQuiz(){
-    var code = computeType();
+    showScreen("judging");
+    setTimeout(showResult, JUDGING_MS);
+  }
+
+  function showResult(){
+    var tally = computeTally();
+    var code = computeType(tally);
     var type = TYPES[code];
+    var accent = GROUP_COLORS[type.group];
+    els.resultCard.style.setProperty("--accent", accent);
+    els.resultCard.style.setProperty("--accent-soft", accent + "22");
+    els.resultEmblem.textContent = type.emoji;
     els.resultCode.textContent = code;
     els.resultNickname.textContent = type.nickname;
     els.resultCatch.textContent = type.catch;
+    var rare = type.jp < 5;
+    els.rarityBadge.textContent = "日本では約" + type.jp.toFixed(1) + "%・世界では約" +
+      type.world.toFixed(1) + "%" + (rare ? " ✨レア!" : "");
+    els.rarityBadge.classList.toggle("rare", rare);
     els.resultDesc.textContent = type.desc;
     fillList(els.resultStrengths, type.strengths);
     fillList(els.resultAruaru, type.aruaru);
     els.resultHint.textContent = type.talkHint;
+    renderAxisMeter(tally);
+    renderMatch(els.matchGood, "話が合いそう", type.goodMatch);
+    renderMatch(els.matchFun, "意外な名コンビ", type.funMatch);
     showScreen("result");
     updateSubmitUI();
   }
