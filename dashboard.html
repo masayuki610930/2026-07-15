@@ -171,12 +171,32 @@
   /* tile grid */
   .tile-grid{
     display:grid;
-    grid-template-columns:repeat(4,1fr);
+    grid-template-columns:auto repeat(4,1fr);
     gap:14px;
+  }
+  .group-label{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    writing-mode:vertical-rl;
+    text-orientation:upright;
+    font-size:13px;
+    font-weight:800;
+    letter-spacing:.25em;
+    padding:12px 7px;
+    border-radius:14px;
   }
   @media (max-width:900px){
     .tile-grid{grid-template-columns:repeat(2,1fr);}
     .bar-label{flex-basis:110px;}
+    .group-label{
+      grid-column:1 / -1;
+      writing-mode:horizontal-tb;
+      justify-content:flex-start;
+      padding:7px 14px;
+      letter-spacing:.15em;
+      border-radius:10px;
+    }
   }
   .tile{
     background:rgba(255,255,255,0.85);
@@ -320,8 +340,24 @@
     });
   }
 
+  var GROUP_ROWS = [
+    { key:"analyst",  label:"分析家" },
+    { key:"diplomat", label:"外交官" },
+    { key:"guardian", label:"番人" },
+    { key:"explorer", label:"探検家" }
+  ];
+
   function buildTiles(){
-    TILE_ORDER.forEach(function(code){
+    TILE_ORDER.forEach(function(code, idx){
+      if(idx % 4 === 0){
+        var g = GROUP_ROWS[idx / 4];
+        var label = document.createElement("div");
+        label.className = "group-label";
+        label.textContent = g.label;
+        label.style.color = GROUP_COLORS[g.key];
+        label.style.background = GROUP_COLORS[g.key] + "1f"; // 12%程度の淡い同系色
+        tileGrid.appendChild(label);
+      }
       var info = TYPES_INFO[code];
       var tile = document.createElement("div");
       tile.className = "tile";
