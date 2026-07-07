@@ -83,8 +83,13 @@ function doGet(e){
   var params = (e && e.parameter) || {};
   var readToken = PropertiesService.getScriptProperties().getProperty("READ_TOKEN");
 
-  if(params.action !== "summary" || !readToken || params.key !== readToken){
+  if(!readToken || params.key !== readToken ||
+     (params.action !== "summary" && params.action !== "reset")){
     return jsonOutput({ ok:false, error:"unauthorized" });
+  }
+
+  if(params.action === "reset"){
+    return handleReset();
   }
 
   var sheet = getResponsesSheet();
@@ -110,4 +115,25 @@ function doGet(e){
     counts: counts,
     updatedAt: new Date().toISOString()
   });
+}
+
+// 管理画面(admin.html)からの回答データ全削除。ヘッダー行(1行目)は残す。
+function handleReset(){
+  var lock = LockService.getScriptLock();
+  try {
+    try {
+      lock.waitLock(10000);
+    } catch(lockErr){
+      return jsonOutput({ ok:false, error:"busy" });
+    }
+    var sheet = getResponsesSheet();
+    var lastRow = sheet.getLastRow();
+    var cleared = lastRow > 1 ? lastRow - 1 : 0;
+    if(cleared > 0){
+      sheet.deleteRows(2, cleared);
+    }
+    return jsonOutput({ ok:true, cleared: cleared });
+  } finally {
+    lock.releaseLock();
+  }
 }

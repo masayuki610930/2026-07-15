@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>⚙️ 管理画面 | ミニMBTI診断</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{
+    --blue:#5b8def;
+    --pink:#ff5e7e;
+    --purple:#9b6dff;
+    --ink:#2b2356;
+    --sub:#5b5478;
+    --card-bg:rgba(255,255,255,0.68);
+    --card-border:rgba(255,255,255,0.75);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    color:var(--ink);
+    -webkit-text-size-adjust:100%;
+    -webkit-tap-highlight-color:transparent;
+    overflow-x:hidden;
+  }
+  .bg{
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    background:#f4f3fb;
+    overflow:hidden;
+  }
+  .bg::before,.bg::after{
+    content:"";
+    position:absolute;
+    width:130vmax;
+    height:130vmax;
+    top:50%;
+    left:50%;
+    background:conic-gradient(from 0deg,
+      #5b8def, #9b6dff, #ff5e7e, #ffb86b, #5b8def);
+    opacity:0.35;
+    filter:blur(60px);
+    animation:spin 26s linear infinite;
+    transform-origin:center;
+  }
+  .bg::after{
+    animation-duration:34s;
+    animation-direction:reverse;
+    opacity:0.25;
+  }
+  @keyframes spin{
+    from{transform:translate(-50%,-50%) rotate(0deg);}
+    to{transform:translate(-50%,-50%) rotate(360deg);}
+  }
+  .wrap{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    padding:28px 18px 48px;
+  }
+  .card{
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:28px;
+    box-shadow:0 20px 60px rgba(91,77,255,0.15);
+    -webkit-backdrop-filter:blur(18px);
+    backdrop-filter:blur(18px);
+    padding:26px 22px;
+    margin-bottom:18px;
+  }
+  h1.title{
+    text-align:center;
+    font-size:26px;
+    line-height:1.35;
+    margin:6px 0 22px;
+    background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    font-weight:800;
+  }
+  .card h2{
+    font-size:16px;
+    margin:0 0 8px;
+    color:var(--ink);
+    font-weight:800;
+  }
+  .card p{
+    font-size:13px;
+    color:var(--sub);
+    line-height:1.7;
+    margin:0 0 16px;
+  }
+  .status{
+    font-size:13px;
+    font-weight:700;
+    margin:0 0 14px;
+    padding:10px 14px;
+    border-radius:12px;
+    background:rgba(91,77,255,0.08);
+  }
+  .btn{
+    display:block;
+    width:100%;
+    border:none;
+    border-radius:18px;
+    padding:15px 18px;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+    color:#fff;
+    background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));
+    box-shadow:0 10px 26px rgba(155,109,255,0.35);
+    transition:transform .12s ease;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn:disabled{opacity:.55;cursor:default;}
+  .btn:disabled:active{transform:none;}
+  .btn-danger{
+    background:linear-gradient(90deg,#ff5e7e,#ff8a5b);
+    box-shadow:0 10px 26px rgba(255,94,126,0.35);
+  }
+  .result-note{
+    font-size:13px;
+    font-weight:700;
+    margin:12px 0 0;
+    text-align:center;
+  }
+  .result-note.ok{color:#1d9d74;}
+  .result-note.ng{color:#e0435f;}
+  .guard-card{margin-top:20vh;text-align:center;}
+  .guard-emoji{font-size:44px;margin-bottom:10px;}
+  .guard-text{font-size:15px;color:var(--sub);line-height:1.7;margin:0;}
+  .back-note{text-align:center;font-size:12px;color:var(--sub);margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="wrap">
+
+  <div class="card guard-card" id="guardCard" style="display:none;">
+    <div class="guard-emoji">🔒</div>
+    <p class="guard-text">このページの表示にはアクセスキーが必要です。幹事に確認してください。</p>
+  </div>
+
+  <div id="adminRoot" style="display:none;">
+    <h1 class="title">⚙️ 管理画面</h1>
+
+    <div class="card">
+      <h2>📱 この端末の送信ロック解除</h2>
+      <p>この端末は1回しか回答を送信できません。テストなどで再送信したい場合、ここでロック（ブラウザ内の送信済みフラグ）をクリアできます。スプレッドシートのデータは消えません。</p>
+      <div class="status" id="deviceStatus">確認中…</div>
+      <button class="btn" id="clearLockBtn">送信ロックをクリア</button>
+      <p class="result-note" id="clearResult"></p>
+    </div>
+
+    <div class="card">
+      <h2>🗑 スプレッドシートの初期化</h2>
+      <p>投稿された<strong>すべての回答データを削除</strong>します（ヘッダー行は残ります）。ダッシュボードには5秒以内に反映されます。元に戻せません。</p>
+      <button class="btn btn-danger" id="resetBtn">回答データをすべて削除</button>
+      <p class="result-note" id="resetResult"></p>
+    </div>
+
+    <p class="back-note">このURL（?key= 付き）は幹事・司会者以外に共有しないでください。</p>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CONFIG = { endpoint: "https://script.google.com/macros/s/AKfycbx9Jl1RzPiP5Biy-3OVCqNwwOHuWdVIqh-Dmal3jAcXLltgHcnLnlim_nbZepojI9v-/exec" }; // GAS Web AppのURL（.../exec）。index.htmlと同じもの
+  var SUBMIT_STORAGE_KEY = "mbti_submitted_v1";
+  var ARM_TIMEOUT_MS = 5000;
+
+  var guardCard = document.getElementById("guardCard");
+  var adminRoot = document.getElementById("adminRoot");
+  var deviceStatus = document.getElementById("deviceStatus");
+  var clearLockBtn = document.getElementById("clearLockBtn");
+  var clearResult = document.getElementById("clearResult");
+  var resetBtn = document.getElementById("resetBtn");
+  var resetResult = document.getElementById("resetResult");
+
+  var key = new URLSearchParams(location.search).get("key");
+  var resetArmed = false;
+  var armTimer = null;
+
+  function refreshDeviceStatus(){
+    var submitted = false;
+    try {
+      var raw = localStorage.getItem(SUBMIT_STORAGE_KEY);
+      var data = raw ? JSON.parse(raw) : null;
+      submitted = !!(data && data.sentAt);
+    } catch(e){ /* 読めない場合は未送信扱い */ }
+    if(submitted){
+      deviceStatus.textContent = "この端末: 送信済み（ロック中）";
+      clearLockBtn.disabled = false;
+    } else {
+      deviceStatus.textContent = "この端末: 未送信（ロックなし）";
+      clearLockBtn.disabled = true;
+    }
+  }
+
+  function clearLock(){
+    try {
+      localStorage.removeItem(SUBMIT_STORAGE_KEY);
+      clearResult.textContent = "クリアしました。この端末から再送信できます ✓";
+      clearResult.className = "result-note ok";
+    } catch(e){
+      clearResult.textContent = "クリアに失敗しました";
+      clearResult.className = "result-note ng";
+    }
+    refreshDeviceStatus();
+  }
+
+  function disarmReset(){
+    resetArmed = false;
+    if(armTimer){ clearTimeout(armTimer); armTimer = null; }
+    resetBtn.textContent = "回答データをすべて削除";
+    resetBtn.disabled = false;
+  }
+
+  function resetSheet(){
+    if(!resetArmed){
+      resetArmed = true;
+      resetBtn.textContent = "⚠ 本当に削除する（もう一度タップ）";
+      resetResult.textContent = "";
+      resetResult.className = "result-note";
+      armTimer = setTimeout(disarmReset, ARM_TIMEOUT_MS);
+      return;
+    }
+    if(armTimer){ clearTimeout(armTimer); armTimer = null; }
+    resetArmed = false;
+    resetBtn.textContent = "削除中…";
+    resetBtn.disabled = true;
+    fetch(CONFIG.endpoint + "?action=reset&key=" + encodeURIComponent(key))
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(data && data.ok){
+          resetResult.textContent = "回答データを削除しました（" + data.cleared + "件）✓";
+          resetResult.className = "result-note ok";
+        } else if(data && data.error === "unauthorized"){
+          resetResult.textContent = "アクセスキーが正しくありません";
+          resetResult.className = "result-note ng";
+        } else {
+          resetResult.textContent = "削除に失敗しました。もう一度お試しください";
+          resetResult.className = "result-note ng";
+        }
+        disarmReset();
+      })
+      .catch(function(){
+        resetResult.textContent = "削除に失敗しました。通信環境を確認してください";
+        resetResult.className = "result-note ng";
+        disarmReset();
+      });
+  }
+
+  function init(){
+    if(!key){
+      guardCard.style.display = "";
+      adminRoot.style.display = "none";
+      return;
+    }
+    guardCard.style.display = "none";
+    adminRoot.style.display = "";
+    refreshDeviceStatus();
+    clearLockBtn.addEventListener("click", clearLock);
+    resetBtn.addEventListener("click", resetSheet);
+  }
+
+  init();
+
+})();
+</script>
+</body>
+</html>

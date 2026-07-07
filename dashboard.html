@@ -107,6 +107,18 @@
     font-weight:700;
   }
   .header-warn.show{display:inline;}
+  .legend{
+    display:flex;
+    justify-content:center;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-top:10px;
+    font-size:12px;
+    color:var(--sub);
+    font-weight:600;
+  }
+  .legend span{display:flex;align-items:center;gap:5px;}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;}
 
   /* bar race */
   .race-card{margin-bottom:20px;}
@@ -200,6 +212,12 @@
         <span id="updatedLabel">--:--:-- 更新</span>
         <span class="header-warn" id="warnLabel">⚠ 更新できません</span>
       </div>
+      <div class="legend">
+        <span><i style="background:#9b6dff"></i>分析家</span>
+        <span><i style="background:#34c39a"></i>外交官</span>
+        <span><i style="background:#5b8def"></i>番人</span>
+        <span><i style="background:#ff9f43"></i>探検家</span>
+      </div>
     </div>
 
     <div class="card race-card">
@@ -255,7 +273,7 @@
 
   var CODES_ALPHA = Object.keys(TYPES_INFO).slice().sort();
   var ROW_HEIGHT = 44;
-  var POLL_INTERVAL_MS = 10000;
+  var POLL_INTERVAL_MS = 5000;
 
   var guardCard = document.getElementById("guardCard");
   var guardText = document.getElementById("guardText");
@@ -361,16 +379,19 @@
     });
   }
 
-  function renderAll(data){
-    renderRace(data.counts);
-    renderTiles(data.counts, data.total);
-    lastCounts = data.counts;
+  function renderHeader(data){
     totalLabel.textContent = "回答: " + data.total + "人";
     var updated = new Date(data.updatedAt);
     var hh = ("0" + updated.getHours()).slice(-2);
     var mm = ("0" + updated.getMinutes()).slice(-2);
     var ss = ("0" + updated.getSeconds()).slice(-2);
     updatedLabel.textContent = hh + ":" + mm + ":" + ss + " 更新";
+  }
+
+  function renderAll(data){
+    renderRace(data.counts);
+    renderTiles(data.counts, data.total);
+    lastCounts = data.counts;
   }
 
   function showWarn(){ warnLabel.classList.add("show"); }
@@ -406,6 +427,7 @@
           return;
         }
         hideWarn();
+        renderHeader(data);
         var countsJson = JSON.stringify(data.counts);
         if(countsJson !== lastCountsJson){
           lastCountsJson = countsJson;
