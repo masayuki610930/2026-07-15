@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>📊 みんなの診断結果 | ミニMBTI診断 会場集計</title>
+<meta name="description" content="懇親会ミニMBTI診断の会場集計ダッシュボード。">
+<style>
+  :root{
+    --blue:#5b8def;
+    --pink:#ff5e7e;
+    --purple:#9b6dff;
+    --ink:#2b2356;
+    --sub:#5b5478;
+    --card-bg:rgba(255,255,255,0.68);
+    --card-border:rgba(255,255,255,0.75);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    color:var(--ink);
+    -webkit-text-size-adjust:100%;
+    overflow-x:hidden;
+  }
+  .bg{
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    background:#f4f3fb;
+    overflow:hidden;
+  }
+  .bg::before,.bg::after{
+    content:"";
+    position:absolute;
+    width:130vmax;
+    height:130vmax;
+    top:50%;
+    left:50%;
+    background:conic-gradient(from 0deg,
+      #5b8def, #9b6dff, #ff5e7e, #ffb86b, #5b8def);
+    opacity:0.35;
+    filter:blur(60px);
+    animation:spin 26s linear infinite;
+    transform-origin:center;
+  }
+  .bg::after{
+    animation-duration:34s;
+    animation-direction:reverse;
+    opacity:0.25;
+  }
+  @keyframes spin{
+    from{transform:translate(-50%,-50%) rotate(0deg);}
+    to{transform:translate(-50%,-50%) rotate(360deg);}
+  }
+  .wrap{
+    max-width:1100px;
+    margin:0 auto;
+    min-height:100vh;
+    padding:28px 20px 48px;
+  }
+  .card{
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:28px;
+    box-shadow:0 20px 60px rgba(91,77,255,0.15);
+    -webkit-backdrop-filter:blur(18px);
+    backdrop-filter:blur(18px);
+    padding:26px 24px;
+  }
+
+  h1.title{
+    text-align:center;
+    font-size:30px;
+    line-height:1.3;
+    margin:0 0 4px;
+    background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    font-weight:800;
+  }
+
+  /* guard screen (no/invalid key) */
+  .guard-card{max-width:480px;margin:20vh auto 0;text-align:center;}
+  .guard-emoji{font-size:44px;margin-bottom:10px;}
+  .guard-text{font-size:15px;color:var(--sub);line-height:1.7;margin:0;}
+
+  /* header */
+  .header{text-align:center;margin-bottom:22px;}
+  .header-meta{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-top:8px;
+    font-size:14px;
+    color:var(--sub);
+    font-weight:600;
+  }
+  .header-warn{
+    display:none;
+    color:var(--pink);
+    font-size:13px;
+    font-weight:700;
+  }
+  .header-warn.show{display:inline;}
+
+  /* bar race */
+  .race-card{margin-bottom:20px;}
+  .race-title{font-size:15px;font-weight:800;color:var(--purple);margin:0 0 16px;}
+  .race-container{position:relative;}
+  .bar-row{
+    position:absolute;
+    left:0;right:0;top:0;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    height:38px;
+    padding:4px 8px;
+    border-radius:12px;
+    transition:transform .8s ease, background-color .8s ease;
+  }
+  .bar-row.flash{background-color:rgba(155,109,255,0.16);}
+  .bar-label{
+    flex:0 0 150px;
+    font-size:12px;
+    font-weight:700;
+    color:var(--ink);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .bar-label .code{color:var(--ink);font-weight:800;}
+  .bar-label .nick{color:var(--sub);font-weight:600;margin-left:4px;}
+  .bar-track{
+    flex:1;
+    height:14px;
+    border-radius:999px;
+    background:rgba(91,77,255,0.10);
+    overflow:hidden;
+  }
+  .bar-fill{
+    height:100%;
+    border-radius:999px;
+    width:0%;
+    transition:width .8s ease;
+  }
+  .bar-count{
+    flex:0 0 52px;
+    text-align:right;
+    font-size:13px;
+    font-weight:800;
+    color:var(--ink);
+  }
+
+  /* tile grid */
+  .tile-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:14px;
+  }
+  @media (max-width:900px){
+    .tile-grid{grid-template-columns:repeat(2,1fr);}
+    .bar-label{flex-basis:110px;}
+  }
+  .tile{
+    background:rgba(255,255,255,0.85);
+    border-radius:18px;
+    padding:14px 16px 12px;
+    border-bottom:4px solid transparent;
+    transition:background-color .8s ease;
+  }
+  .tile.flash{background-color:rgba(155,109,255,0.20);}
+  .tile-head{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800;color:var(--ink);}
+  .tile-emoji{font-size:18px;}
+  .tile-nick{font-weight:600;color:var(--sub);font-size:12px;display:block;margin-top:2px;}
+  .tile-catch{font-size:12px;color:var(--sub);margin:8px 0 10px;line-height:1.5;min-height:2.6em;}
+  .tile-venue{font-size:13px;font-weight:800;color:var(--ink);}
+  .tile-venue.zero{color:#b3aec9;font-weight:600;}
+  .tile-ref{font-size:11px;color:var(--sub);margin-top:2px;}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="wrap">
+
+  <div class="guard-card card" id="guardCard" style="display:none;">
+    <div class="guard-emoji">🔒</div>
+    <p class="guard-text" id="guardText">このページの表示にはアクセスキーが必要です。幹事に確認してください。</p>
+  </div>
+
+  <div id="dashboardRoot" style="display:none;">
+    <div class="header">
+      <h1 class="title">みんなの診断結果</h1>
+      <div class="header-meta">
+        <span id="totalLabel">回答: 0人</span>
+        <span id="updatedLabel">--:--:-- 更新</span>
+        <span class="header-warn" id="warnLabel">⚠ 更新できません</span>
+      </div>
+    </div>
+
+    <div class="card race-card">
+      <p class="race-title">📈 タイプ別 回答数レース</p>
+      <div class="race-container" id="raceContainer"></div>
+    </div>
+
+    <div class="card">
+      <div class="tile-grid" id="tileGrid"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CONFIG = { endpoint: "https://script.google.com/macros/s/AKfycbx9Jl1RzPiP5Biy-3OVCqNwwOHuWdVIqh-Dmal3jAcXLltgHcnLnlim_nbZepojI9v-/exec" }; // GAS Web AppのURL（.../exec）。index.htmlと同じもの
+
+  var GROUP_COLORS = {
+    analyst: "#9b6dff",
+    diplomat: "#34c39a",
+    guardian: "#5b8def",
+    explorer: "#ff9f43"
+  };
+
+  var TYPES_INFO = {
+    ISTJ:{ nickname:"管理者の堅実派", catch:"コツコツ確実に積み上げる人", emoji:"⚖️", group:"guardian", jp:3.6, world:11.6 },
+    ISFJ:{ nickname:"擁護者の支援者", catch:"さりげない気配りの達人", emoji:"🛡️", group:"guardian", jp:6.8, world:13.8 },
+    INFJ:{ nickname:"提唱者のカウンセラー", catch:"静かに人の気持ちを読み取る人", emoji:"💡", group:"diplomat", jp:6.8, world:1.5 },
+    INTJ:{ nickname:"策士の建築家", catch:"静かに戦略を描き、淡々と実行する", emoji:"👑", group:"analyst", jp:3.7, world:2.1 },
+    ISTP:{ nickname:"巨匠気質の職人", catch:"手を動かしながら考える実践派", emoji:"🔧", group:"explorer", jp:2.9, world:5.4 },
+    ISFP:{ nickname:"冒険家気質の芸術家", catch:"自分の感性を大事にする自由人", emoji:"🎨", group:"explorer", jp:6.7, world:8.8 },
+    INFP:{ nickname:"仲介者の夢想家", catch:"自分の価値観に静かに正直な人", emoji:"💗", group:"diplomat", jp:16.4, world:4.4 },
+    INTP:{ nickname:"探究者の発明家", catch:"「なぜ？」を突き詰める知的好奇心の人", emoji:"🧪", group:"analyst", jp:7.2, world:3.3 },
+    ESTP:{ nickname:"起業家気質のチャレンジャー", catch:"今この瞬間を楽しむ行動派", emoji:"🚀", group:"explorer", jp:2.6, world:4.3 },
+    ESFP:{ nickname:"エンターテイナー気質の人気者", catch:"その場を明るくする太陽", emoji:"🎤", group:"explorer", jp:6.0, world:8.5 },
+    ENFP:{ nickname:"広報担当の太陽", catch:"好奇心とテンションで場を盛り上げる人", emoji:"📣", group:"diplomat", jp:13.8, world:8.1 },
+    ENTP:{ nickname:"討論者の発見者", catch:"議論と新しいアイデアを楽しむ人", emoji:"💬", group:"analyst", jp:5.2, world:3.2 },
+    ESTJ:{ nickname:"幹部気質の実行者", catch:"物事をきっちり進める仕切り屋", emoji:"🏢", group:"guardian", jp:3.4, world:8.7 },
+    ESFJ:{ nickname:"領事気質のお世話役", catch:"場の調和を大事にするムードメーカー", emoji:"🤝", group:"guardian", jp:6.8, world:12.3 },
+    ENFJ:{ nickname:"主人公気質のまとめ役", catch:"みんなを元気にするムードメーカー", emoji:"👥", group:"diplomat", jp:5.6, world:2.5 },
+    ENTJ:{ nickname:"指揮官の戦略家", catch:"仲間を巻き込み、前に進める人", emoji:"🏁", group:"analyst", jp:2.6, world:1.8 }
+  };
+
+  var TILE_ORDER = [
+    "ISTJ","ISFJ","INFJ","INTJ",
+    "ISTP","ISFP","INFP","INTP",
+    "ESTP","ESFP","ENFP","ENTP",
+    "ESTJ","ESFJ","ENFJ","ENTJ"
+  ];
+
+  var CODES_ALPHA = Object.keys(TYPES_INFO).slice().sort();
+  var ROW_HEIGHT = 44;
+  var POLL_INTERVAL_MS = 10000;
+
+  var guardCard = document.getElementById("guardCard");
+  var guardText = document.getElementById("guardText");
+  var dashboardRoot = document.getElementById("dashboardRoot");
+  var totalLabel = document.getElementById("totalLabel");
+  var updatedLabel = document.getElementById("updatedLabel");
+  var warnLabel = document.getElementById("warnLabel");
+  var raceContainer = document.getElementById("raceContainer");
+  var tileGrid = document.getElementById("tileGrid");
+
+  var barRows = {};
+  var tiles = {};
+  var lastCounts = {};
+  var lastCountsJson = null;
+  var fetching = false;
+  var pollTimer = null;
+
+  function buildRace(){
+    raceContainer.style.height = (ROW_HEIGHT * CODES_ALPHA.length) + "px";
+    CODES_ALPHA.forEach(function(code){
+      var info = TYPES_INFO[code];
+      var row = document.createElement("div");
+      row.className = "bar-row";
+      row.innerHTML =
+        '<div class="bar-label"><span class="code">' + code + '</span><span class="nick">' + info.nickname + '</span></div>' +
+        '<div class="bar-track"><div class="bar-fill"></div></div>' +
+        '<div class="bar-count">0人</div>';
+      raceContainer.appendChild(row);
+      var fillEl = row.querySelector(".bar-fill");
+      fillEl.style.background = GROUP_COLORS[info.group];
+      barRows[code] = {
+        el: row,
+        fillEl: fillEl,
+        countEl: row.querySelector(".bar-count")
+      };
+    });
+  }
+
+  function buildTiles(){
+    TILE_ORDER.forEach(function(code){
+      var info = TYPES_INFO[code];
+      var tile = document.createElement("div");
+      tile.className = "tile";
+      tile.style.borderBottomColor = GROUP_COLORS[info.group];
+      tile.innerHTML =
+        '<div class="tile-head">' +
+          '<span class="tile-emoji">' + info.emoji + '</span>' +
+          '<span>' + code + '<span class="tile-nick">' + info.nickname + '</span></span>' +
+        '</div>' +
+        '<p class="tile-catch">' + info.catch + '</p>' +
+        '<div class="tile-venue zero" data-role="venue">会場: 0人</div>' +
+        '<div class="tile-ref">日本: ' + info.jp.toFixed(1) + '% ／ 世界: ' + info.world.toFixed(1) + '%</div>';
+      tileGrid.appendChild(tile);
+      tiles[code] = {
+        el: tile,
+        venueEl: tile.querySelector('[data-role="venue"]')
+      };
+    });
+  }
+
+  function flash(el){
+    el.classList.add("flash");
+    setTimeout(function(){ el.classList.remove("flash"); }, 800);
+  }
+
+  function renderRace(counts){
+    var ranked = CODES_ALPHA.map(function(code){
+      return { code: code, count: counts[code] || 0 };
+    });
+    ranked.sort(function(a, b){
+      if(b.count !== a.count) return b.count - a.count;
+      return a.code < b.code ? -1 : (a.code > b.code ? 1 : 0);
+    });
+    var maxCount = ranked.length ? ranked[0].count : 0;
+
+    ranked.forEach(function(item, idx){
+      var row = barRows[item.code];
+      var widthPct = maxCount > 0 ? (item.count / maxCount * 100) : 0;
+      row.el.style.transform = "translateY(" + (idx * ROW_HEIGHT) + "px)";
+      row.fillEl.style.width = widthPct + "%";
+      row.countEl.textContent = item.count + "人";
+      if(item.count > (lastCounts[item.code] || 0)){
+        flash(row.el);
+      }
+    });
+  }
+
+  function renderTiles(counts, total){
+    TILE_ORDER.forEach(function(code){
+      var tile = tiles[code];
+      var count = counts[code] || 0;
+      if(count > 0){
+        var pct = (count / total * 100).toFixed(1);
+        tile.venueEl.textContent = "会場: " + count + "人 (" + pct + "%)";
+        tile.venueEl.classList.remove("zero");
+      } else {
+        tile.venueEl.textContent = "会場: 0人";
+        tile.venueEl.classList.add("zero");
+      }
+      if(count > (lastCounts[code] || 0)){
+        flash(tile.el);
+      }
+    });
+  }
+
+  function renderAll(data){
+    renderRace(data.counts);
+    renderTiles(data.counts, data.total);
+    lastCounts = data.counts;
+    totalLabel.textContent = "回答: " + data.total + "人";
+    var updated = new Date(data.updatedAt);
+    var hh = ("0" + updated.getHours()).slice(-2);
+    var mm = ("0" + updated.getMinutes()).slice(-2);
+    var ss = ("0" + updated.getSeconds()).slice(-2);
+    updatedLabel.textContent = hh + ":" + mm + ":" + ss + " 更新";
+  }
+
+  function showWarn(){ warnLabel.classList.add("show"); }
+  function hideWarn(){ warnLabel.classList.remove("show"); }
+
+  function showGuard(message){
+    guardText.textContent = message;
+    guardCard.style.display = "";
+    dashboardRoot.style.display = "none";
+  }
+
+  function stopPolling(){
+    if(pollTimer){
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function poll(key){
+    if(fetching) return;
+    fetching = true;
+    fetch(CONFIG.endpoint + "?action=summary&key=" + encodeURIComponent(key))
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        fetching = false;
+        if(!data || !data.ok){
+          if(data && data.error === "unauthorized"){
+            stopPolling();
+            showGuard("アクセスキーが正しくありません。幹事に確認してください。");
+            return;
+          }
+          showWarn();
+          return;
+        }
+        hideWarn();
+        var countsJson = JSON.stringify(data.counts);
+        if(countsJson !== lastCountsJson){
+          lastCountsJson = countsJson;
+          renderAll(data);
+        }
+      })
+      .catch(function(){
+        fetching = false;
+        showWarn();
+      });
+  }
+
+  function init(){
+    var key = new URLSearchParams(location.search).get("key");
+    if(!key){
+      showGuard("このページの表示にはアクセスキーが必要です。幹事に確認してください。");
+      return;
+    }
+    guardCard.style.display = "none";
+    dashboardRoot.style.display = "";
+    buildRace();
+    buildTiles();
+    poll(key);
+    pollTimer = setInterval(function(){ poll(key); }, POLL_INTERVAL_MS);
+  }
+
+  init();
+
+})();
+</script>
+</body>
+</html>

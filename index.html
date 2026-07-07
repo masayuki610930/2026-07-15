@@ -259,6 +259,9 @@
   }
   .result-actions{margin-top:22px;display:flex;flex-direction:column;gap:10px;}
   .share-note{text-align:center;font-size:12px;color:var(--sub);margin:14px 0 0;}
+  .submit-note{text-align:center;font-size:12px;color:var(--sub);margin:0;}
+  .btn:disabled{opacity:.55;cursor:default;}
+  .btn:disabled:active{transform:none;}
 </style>
 </head>
 <body>
@@ -323,6 +326,8 @@
       </div>
     </div>
     <div class="result-actions">
+      <button class="btn btn-primary" id="submitBtn">📊 会場の集計に参加する（匿名）</button>
+      <p class="submit-note" id="submitNote">送信されるのはタイプ（4文字）だけ。名前などは送られません。</p>
       <button class="btn btn-primary" id="restartBtn">もう一回診断する</button>
     </div>
     <p class="share-note">📸 結果カードをスクショして見せ合ってみよう！</p>
@@ -333,6 +338,9 @@
 <script>
 (function(){
   "use strict";
+
+  var CONFIG = { endpoint: "https://script.google.com/macros/s/AKfycbx9Jl1RzPiP5Biy-3OVCqNwwOHuWdVIqh-Dmal3jAcXLltgHcnLnlim_nbZepojI9v-/exec" }; // GAS Web AppのURL（.../exec）
+  var SUBMIT_STORAGE_KEY = "mbti_submitted_v1";
 
   var QUESTIONS = [
     { axis:"EI", scene:"日常", text:"休日、何をしてると一番回復する？",
@@ -479,7 +487,9 @@
     resultStrengths: document.getElementById("resultStrengths"),
     resultAruaru: document.getElementById("resultAruaru"),
     resultHint: document.getElementById("resultHint"),
-    restartBtn: document.getElementById("restartBtn")
+    restartBtn: document.getElementById("restartBtn"),
+    submitBtn: document.getElementById("submitBtn"),
+    submitNote: document.getElementById("submitNote")
   };
 
   function showScreen(name){
@@ -555,6 +565,7 @@
     fillList(els.resultAruaru, type.aruaru);
     els.resultHint.textContent = type.talkHint;
     showScreen("result");
+    updateSubmitUI();
   }
 
   function fillList(ul, items){
@@ -566,11 +577,85 @@
     });
   }
 
+  function generateUuidV4(){
+    if(typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"){
+      return crypto.randomUUID();
+    }
+    var bytes = [];
+    for(var i = 0; i < 16; i++){ bytes.push(Math.floor(Math.random() * 256)); }
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    var hex = bytes.map(function(b){ return ("0" + b.toString(16)).slice(-2); });
+    return hex.slice(0,4).join("") + "-" + hex.slice(4,6).join("") + "-" +
+      hex.slice(6,8).join("") + "-" + hex.slice(8,10).join("") + "-" + hex.slice(10,16).join("");
+  }
+
+  function getSubmission(){
+    try {
+      var raw = localStorage.getItem(SUBMIT_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e){
+      return null;
+    }
+  }
+
+  function setSubmission(data){
+    try {
+      localStorage.setItem(SUBMIT_STORAGE_KEY, JSON.stringify(data));
+    } catch(e){ /* ストレージが使えない環境では諦める */ }
+  }
+
+  function setSubmitBtnState(text, disabled){
+    els.submitBtn.textContent = text;
+    els.submitBtn.disabled = disabled;
+  }
+
+  function updateSubmitUI(){
+    if(!CONFIG.endpoint){
+      els.submitBtn.style.display = "none";
+      els.submitNote.style.display = "none";
+      return;
+    }
+    els.submitBtn.style.display = "";
+    els.submitNote.style.display = "";
+    var submission = getSubmission();
+    if(submission && submission.sentAt){
+      setSubmitBtnState("送信しました ✓", true);
+    } else {
+      setSubmitBtnState("📊 会場の集計に参加する（匿名）", false);
+    }
+  }
+
+  function submitResult(code){
+    var submission = getSubmission();
+    var uuid = submission && submission.uuid ? submission.uuid : generateUuidV4();
+    if(!submission || !submission.uuid){
+      setSubmission({ uuid: uuid });
+    }
+    setSubmitBtnState("送信中…", true);
+    fetch(CONFIG.endpoint, {
+      method: "POST",
+      body: JSON.stringify({ type: code, uuid: uuid })
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(!data || !data.ok){ throw new Error("submit rejected"); }
+        setSubmission({ uuid: uuid, sentAt: new Date().toISOString() });
+        setSubmitBtnState("送信しました ✓", true);
+      })
+      .catch(function(){
+        setSubmitBtnState("送信に失敗しました。もう一度タップ", false);
+      });
+  }
+
   els.startBtn.addEventListener("click", startQuiz);
   els.choiceA.addEventListener("click", function(){ selectAnswer("a"); });
   els.choiceB.addEventListener("click", function(){ selectAnswer("b"); });
   els.backBtn.addEventListener("click", goBack);
   els.restartBtn.addEventListener("click", startQuiz);
+  els.submitBtn.addEventListener("click", function(){
+    submitResult(els.resultCode.textContent);
+  });
 
 })();
 </script>
