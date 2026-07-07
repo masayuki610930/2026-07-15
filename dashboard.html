@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>📊 みんなの診断結果 | ミニMBTI診断 会場集計</title>
+<title>2026-07-15 懇親会</title>
 <meta name="description" content="懇親会ミニMBTI診断の会場集計ダッシュボード。">
 <style>
   :root{
@@ -130,9 +130,9 @@
     display:flex;
     align-items:center;
     gap:10px;
-    height:38px;
-    padding:4px 8px;
-    border-radius:12px;
+    height:26px;
+    padding:2px 8px;
+    border-radius:10px;
     transition:transform .8s ease, background-color .8s ease;
   }
   .bar-row.flash{background-color:rgba(155,109,255,0.16);}
@@ -204,6 +204,11 @@
     <p class="guard-text" id="guardText">このページの表示にはアクセスキーが必要です。幹事に確認してください。</p>
   </div>
 
+  <div class="guard-card card" id="loadingCard" style="display:none;">
+    <div class="guard-emoji">⏳</div>
+    <p class="guard-text">集計データを読み込んでいます…</p>
+  </div>
+
   <div id="dashboardRoot" style="display:none;">
     <div class="header">
       <h1 class="title">みんなの診断結果</h1>
@@ -264,19 +269,21 @@
     ENTJ:{ nickname:"指揮官の戦略家", catch:"仲間を巻き込み、前に進める人", emoji:"🏁", group:"analyst", jp:2.6, world:1.8 }
   };
 
+  // 1行=1グループ（凡例と同じ順: 分析家→外交官→番人→探検家）
   var TILE_ORDER = [
-    "ISTJ","ISFJ","INFJ","INTJ",
-    "ISTP","ISFP","INFP","INTP",
-    "ESTP","ESFP","ENFP","ENTP",
-    "ESTJ","ESFJ","ENFJ","ENTJ"
+    "INTJ","INTP","ENTJ","ENTP",
+    "INFJ","INFP","ENFJ","ENFP",
+    "ISTJ","ISFJ","ESTJ","ESFJ",
+    "ISTP","ISFP","ESTP","ESFP"
   ];
 
   var CODES_ALPHA = Object.keys(TYPES_INFO).slice().sort();
-  var ROW_HEIGHT = 44;
+  var ROW_HEIGHT = 30;
   var POLL_INTERVAL_MS = 5000;
 
   var guardCard = document.getElementById("guardCard");
   var guardText = document.getElementById("guardText");
+  var loadingCard = document.getElementById("loadingCard");
   var dashboardRoot = document.getElementById("dashboardRoot");
   var totalLabel = document.getElementById("totalLabel");
   var updatedLabel = document.getElementById("updatedLabel");
@@ -290,6 +297,7 @@
   var lastCountsJson = null;
   var fetching = false;
   var pollTimer = null;
+  var firstLoad = true;
 
   function buildRace(){
     raceContainer.style.height = (ROW_HEIGHT * CODES_ALPHA.length) + "px";
@@ -400,6 +408,7 @@
   function showGuard(message){
     guardText.textContent = message;
     guardCard.style.display = "";
+    loadingCard.style.display = "none";
     dashboardRoot.style.display = "none";
   }
 
@@ -431,7 +440,13 @@
         var countsJson = JSON.stringify(data.counts);
         if(countsJson !== lastCountsJson){
           lastCountsJson = countsJson;
+          if(firstLoad){ lastCounts = data.counts; } // 初回はハイライト演出なしで描画
           renderAll(data);
+        }
+        if(firstLoad){
+          firstLoad = false;
+          loadingCard.style.display = "none";
+          dashboardRoot.style.display = "";
         }
       })
       .catch(function(){
@@ -447,7 +462,7 @@
       return;
     }
     guardCard.style.display = "none";
-    dashboardRoot.style.display = "";
+    loadingCard.style.display = "";
     buildRace();
     buildTiles();
     poll(key);
